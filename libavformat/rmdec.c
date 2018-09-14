@@ -33,13 +33,6 @@
 #include "rmsipr.h"
 #include "rm.h"
 
-#define DEINT_ID_GENR MKTAG('g', 'e', 'n', 'r') ///< interleaving for Cooker/ATRAC
-#define DEINT_ID_INT0 MKTAG('I', 'n', 't', '0') ///< no interleaving needed
-#define DEINT_ID_INT4 MKTAG('I', 'n', 't', '4') ///< interleaving for 28.8
-#define DEINT_ID_SIPR MKTAG('s', 'i', 'p', 'r') ///< interleaving for Sipro
-#define DEINT_ID_VBRF MKTAG('v', 'b', 'r', 'f') ///< VBR case for AAC
-#define DEINT_ID_VBRS MKTAG('v', 'b', 'r', 's') ///< VBR case for AAC
-
 struct RMStream {
     AVPacket pkt;      ///< place to store merged video frame / reordered audio data
     int videobufsize;  ///< current assembled frame size
@@ -420,7 +413,8 @@ skip:
 static int rm_read_index(AVFormatContext *s)
 {
     AVIOContext *pb = s->pb;
-    unsigned int size, n_pkts, str_id, next_off, n, pos, pts;
+    unsigned int size, n_pkts, str_id, n, pts, version;
+    uint64_t next_off, pos;
     AVStream *st;
 
     do {
@@ -429,10 +423,10 @@ static int rm_read_index(AVFormatContext *s)
         size     = avio_rb32(pb);
         if (size < 20)
             return -1;
-        avio_skip(pb, 2);
+        version  = avio_rb16(pb);
         n_pkts   = avio_rb32(pb);
         str_id   = avio_rb16(pb);
-        next_off = avio_rb32(pb);
+        next_off = (version == 2) ? avio_rb64(pb) : avio_rb32(pb);
         for (n = 0; n < s->nb_streams; n++)
             if (s->streams[n]->id == str_id) {
                 st = s->streams[n];
@@ -455,7 +449,7 @@ static int rm_read_index(AVFormatContext *s)
         for (n = 0; n < n_pkts; n++) {
             avio_skip(pb, 2);
             pts = avio_rb32(pb);
-            pos = avio_rb32(pb);
+            pos = (version == 2) ? avio_rb64(pb) : avio_rb32(pb);
             avio_skip(pb, 4); /* packet no. */
 
             av_add_index_entry(st, pos, pts, 0, 0, AVINDEX_KEYFRAME);
@@ -536,6 +530,7 @@ static int rm_read_header(AVFormatContext *s)
     AVIOContext *pb = s->pb;
     unsigned int tag;
     int tag_size;
+    unsigned int version;
     unsigned int start_time, duration;
     unsigned int data_off = 0, indx_off = 0;
     char buf[128], mime[128];
@@ -548,7 +543,8 @@ static int rm_read_header(AVFormatContext *s)
     if (tag == MKTAG('.', 'r', 'a', 0xfd)) {
         /* very old .ra format */
         return rm_read_header_old(s);
-    } else if (tag != MKTAG('.', 'R', 'M', 'F')) {
+    } else if (tag != MKTAG('.', 'R', 'M', 'F') &&
+              (tag != MKTAG('.', 'R', 'M', 'P'))) {
         return AVERROR(EIO);
     }
 
@@ -560,7 +556,7 @@ static int rm_read_header(AVFormatContext *s)
             goto fail;
         tag = avio_rl32(pb);
         tag_size = avio_rb32(pb);
-        avio_rb16(pb);
+        version  = avio_rb16(pb);
         av_log(s, AV_LOG_TRACE, "tag=%s size=%d\n",
                av_fourcc2str(tag), tag_size);
         if (tag_size < 10 && tag != MKTAG('D', 'A', 'T', 'A'))
@@ -576,7 +572,7 @@ static int rm_read_header(AVFormatContext *s)
             duration = avio_rb32(pb); /* duration */
             s->duration = av_rescale(duration, AV_TIME_BASE, 1000);
             avio_rb32(pb); /* preroll */
-            indx_off = avio_rb32(pb); /* index offset */
+            indx_off = (version == 2) ? avio_rb64(pb) : avio_rb32(pb); /* index offset */
             data_off = avio_rb32(pb); /* data offset */
             avio_rb16(pb); /* nb streams */
             flags = avio_rb16(pb); /* flags */
@@ -639,7 +635,13 @@ static int rm_read_header(AVFormatContext *s)
     rm->nb_packets = avio_rb32(pb); /* number of packets */
     if (!rm->nb_packets && (flags & 4))
         rm->nb_packets = 3600 * 25;
-    avio_rb32(pb); /* next data header */
+
+    if (version == 2) {
+        avio_rb64(pb);
+        avio_rb64(pb); /* updated size */
+    } else {
+        avio_rb32(pb); /* next data header */
+    }
 
     if (!data_off)
         data_off = avio_tell(pb) - 18;
@@ -647,7 +649,11 @@ static int rm_read_header(AVFormatContext *s)
         !(s->flags & AVFMT_FLAG_IGNIDX) &&
         avio_seek(pb, indx_off, SEEK_SET) >= 0) {
         rm_read_index(s);
-        avio_seek(pb, data_off + 18, SEEK_SET);
+        if (version == 2) {
+            avio_seek(pb, data_off + 30, SEEK_SET);
+        } else {
+            avio_seek(pb, data_off + 18, SEEK_SET);
+        }
     }
 
     return 0;
@@ -1076,8 +1082,20 @@ static int rm_probe(AVProbeData *p)
         (p->buf[0] == '.' && p->buf[1] == 'r' &&
          p->buf[2] == 'a' && p->buf[3] == 0xfd))
         return AVPROBE_SCORE_MAX;
+    else if (AV_RL32(&p->buf[0]) == MKTAG('.', 'R', 'M', 'P'))
+        return AVPROBE_SCORE_MAX;
     else
         return 0;
+}
+
+static int rmhd_probe(AVProbeData *p)
+{
+    /* check file header */
+    if (AV_RL32(&p->buf[0]) == MKTAG('.', 'R', 'M', 'P')) {
+        return AVPROBE_SCORE_MAX;
+    } else {
+        return 0;
+    }
 }
 
 static int64_t rm_read_dts(AVFormatContext *s, int stream_index,

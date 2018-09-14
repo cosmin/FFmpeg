@@ -339,6 +339,7 @@ extern AVInputFormat  ff_redspark_demuxer;
 extern AVInputFormat  ff_rl2_demuxer;
 extern AVInputFormat  ff_rm_demuxer;
 extern AVOutputFormat ff_rm_muxer;
+extern AVOutputFormat ff_rmhd_muxer;
 extern AVInputFormat  ff_roq_demuxer;
 extern AVOutputFormat ff_roq_muxer;
 extern AVInputFormat  ff_rpl_demuxer;

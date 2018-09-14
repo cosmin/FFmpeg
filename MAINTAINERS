@@ -193,6 +193,7 @@ Codecs:
   libkvazaar.c                          Arttu Ylä-Outinen
   libopenjpeg.c                         Jaikrishnan Menon
   libopenjpegenc.c                      Michael Bradshaw
+  librv11*                              Thilo Borgmann, Qiang Luo
   libtheoraenc.c                        David Conrad
   libvorbis.c                           David Conrad
   libvpx*                               James Zern

@@ -522,6 +522,13 @@ static const AVCodecDescriptor codec_descriptors[] = {
         .props     = AV_CODEC_PROP_LOSSY | AV_CODEC_PROP_REORDER,
     },
     {
+        .id        = AV_CODEC_ID_RV60,
+        .type      = AVMEDIA_TYPE_VIDEO,
+        .name      = "rv60",
+        .long_name = NULL_IF_CONFIG_SMALL("RealVideo 11"),
+        .props     = AV_CODEC_PROP_LOSSY | AV_CODEC_PROP_REORDER,
+    },
+    {
         .id        = AV_CODEC_ID_VC1,
         .type      = AVMEDIA_TYPE_VIDEO,
         .name      = "vc1",

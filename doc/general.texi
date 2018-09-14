@@ -292,6 +292,12 @@ Create an @code{AMF/} directory in the system include path.
 Copy the contents of @code{AMF/amf/public/include/} into that directory.
 Then configure FFmpeg with @code{--enable-amf}.
 
+@section RealVideo11 (RV60)
+
+FFmpeg can make use of the RV11 codec libraries for encoding and decoding.
+
+Go to @url{http://www.rmhd.io/} and download the SDK installer.
+
 
 @chapter Supported File Formats, Codecs or Features
 
@@ -571,6 +577,7 @@ library:
 @item REDCODE R3D               @tab   @tab X
     @tab File format used by RED Digital cameras, contains JPEG 2000 frames and PCM audio.
 @item RealMedia                 @tab X @tab X
+@item RealMedia HD              @tab X @tab X
 @item Redirector                @tab   @tab X
 @item RedSpark                  @tab   @tab X
 @item Renderware TeXture Dictionary @tab   @tab X

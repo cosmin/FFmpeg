@@ -86,6 +86,8 @@ version 4.0:
 - segafilm muxer
 - vfrdet filter
 - SRCNN filter
+- RMHD Muxer/Demuxer
+- RealVideo 11 support via librv11
 
 
 version 3.4:

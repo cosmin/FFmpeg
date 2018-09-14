@@ -22,6 +22,7 @@
 #include "avio_internal.h"
 #include "rm.h"
 #include "libavutil/dict.h"
+#include "libavutil/intreadwrite.h"
 
 typedef struct StreamInfo {
     int nb_packets;
@@ -33,13 +34,18 @@ typedef struct StreamInfo {
     int nb_frames;    /* current frame number */
     int total_frames; /* total number of frames */
     int num;
+    int32_t deint_id;
     AVCodecParameters *par;
 } StreamInfo;
+
+#define MODE_RMVB 0x01
+#define MODE_RMHD 0x02
 
 typedef struct RMMuxContext {
     StreamInfo streams[2];
     StreamInfo *audio_stream, *video_stream;
     int data_pos; /* position of the data after the header */
+    int mode;
 } RMMuxContext;
 
 /* in ms */
@@ -67,26 +73,38 @@ static void put_str8(AVIOContext *s, const char *tag)
 }
 
 static int rv10_write_header(AVFormatContext *ctx,
-                             int data_size, int index_pos)
+                             int64_t data_size, int64_t index_pos)
 {
     RMMuxContext *rm = ctx->priv_data;
     AVIOContext *s = ctx->pb;
     StreamInfo *stream;
     const char *desc, *mimetype;
-    int nb_packets, packet_total_size, packet_max_size, size, packet_avg_size, i;
+    int nb_packets, packet_total_size, packet_max_size, size, packet_avg_size, i, j;
     int bit_rate, v, duration, flags;
     int data_offset;
     AVDictionaryEntry *tag;
 
-    ffio_wfourcc(s, ".RMF");
-    avio_wb32(s,18); /* header size */
-    avio_wb16(s,0);
-    avio_wb32(s,0);
-    avio_wb32(s,4 + ctx->nb_streams); /* num headers */
+    // RMF represent rmvb, RMP represent rmhd
+    if(rm->mode & MODE_RMVB) {
+        ffio_wfourcc(s,".RMF");
+        avio_wb32(s,18); /* header size */
+        avio_wb16(s,0);  /* object version */
+        avio_wb32(s,0);  /* file version */
+        avio_wb32(s,4 + ctx->nb_streams); /* num headers */
+        ffio_wfourcc(s,"PROP");
+        avio_wb32(s, 50);
+        avio_wb16(s, 0);
+    } else {
+        ffio_wfourcc(s, ".RMP");
+        avio_wb32(s,18); /* header size */
+        avio_wb16(s,1);  /* object version */
+        avio_wb32(s,0);  /* file version */
+        avio_wb32(s,5 + ctx->nb_streams); /* num headers */
+        ffio_wfourcc(s,"PROP");
+        avio_wb32(s, 54);
+        avio_wb16(s, 2);
+    }
 
-    ffio_wfourcc(s,"PROP");
-    avio_wb32(s, 50);
-    avio_wb16(s, 0);
     packet_max_size = 0;
     packet_total_size = 0;
     nb_packets = 0;
@@ -115,7 +133,11 @@ static int rv10_write_header(AVFormatContext *ctx,
     avio_wb32(s, nb_packets);  /* num packets */
     avio_wb32(s, duration); /* duration */
     avio_wb32(s, BUFFER_DURATION);           /* preroll */
-    avio_wb32(s, index_pos);           /* index offset */
+    if(rm->mode & MODE_RMVB) {
+        avio_wb32(s, index_pos);             /* index offset */
+    } else {
+        avio_wb64(s, index_pos);             /* index offset */
+    }
     /* computation of data the data offset */
     data_offset = avio_tell(s);
     avio_wb32(s, 0);           /* data offset : will be patched after */
@@ -148,11 +170,27 @@ static int rv10_write_header(AVFormatContext *ctx,
         if (stream->par->codec_type == AVMEDIA_TYPE_AUDIO) {
             desc = "The Audio Stream";
             mimetype = "audio/x-pn-realaudio";
-            codec_data_size = 73;
+            if (stream->par->codec_id == AV_CODEC_ID_AAC) {
+                codec_data_size = 78;
+                if(stream->par->extradata_size > 0){
+                    codec_data_size += stream->par->extradata_size + 1;
+                }
+            } else {
+                codec_data_size = 73;
+            }
         } else {
             desc = "The Video Stream";
             mimetype = "video/x-pn-realvideo";
-            codec_data_size = 34;
+            if(stream->par->codec_id == AV_CODEC_ID_RV10 ||
+               stream->par->codec_id == AV_CODEC_ID_RV20 ||
+               stream->par->codec_id == AV_CODEC_ID_RV40) {
+                codec_data_size = 34;
+            } else if(!stream->par->extradata_size &&
+                      stream->par->codec_id == AV_CODEC_ID_RV60) {
+                codec_data_size = 40;
+            } else {
+                codec_data_size = 26 + stream->par->extradata_size;
+            }
         }
 
         ffio_wfourcc(s,"MDPR");
@@ -184,16 +222,25 @@ static int rv10_write_header(AVFormatContext *ctx,
         if (stream->par->codec_type == AVMEDIA_TYPE_AUDIO) {
             int coded_frame_size, fscode, sample_rate;
             int frame_size = av_get_audio_frame_duration2(stream->par, 0);
+            int version = stream->par->codec_id == AV_CODEC_ID_AAC ? 5 : 4;
             sample_rate = stream->par->sample_rate;
             coded_frame_size = (stream->par->bit_rate *
                                 frame_size) / (8 * sample_rate);
             /* audio codec info */
             avio_write(s, ".ra", 3);
             avio_w8(s, 0xfd);
-            avio_wb32(s, 0x00040000); /* version */
+            if (version == 5) {
+                avio_wb32(s, 0x00050000); /* version */
+            } else {
+                avio_wb32(s, 0x00040000); /* version */
+            }
             ffio_wfourcc(s, ".ra4");
             avio_wb32(s, 0x01b53530); /* stream length */
-            avio_wb16(s, 4); /* unknown */
+            if (version == 5) { /* write version */
+                avio_wb16(s, 5);
+            } else {
+                avio_wb16(s, 4);
+            }
             avio_wb32(s, 0x39); /* header size */
 
             switch(sample_rate) {
@@ -225,30 +272,72 @@ static int rv10_write_header(AVFormatContext *ctx,
             avio_wb16(s, 0x01);
             /* frame length : seems to be very important */
             avio_wb16(s, coded_frame_size);
-            avio_wb32(s, 0); /* unknown */
-            avio_wb16(s, stream->par->sample_rate); /* sample rate */
-            avio_wb32(s, 0x10); /* unknown */
-            avio_wb16(s, stream->par->channels);
-            put_str8(s, "Int0"); /* codec name */
-            if (stream->par->codec_tag) {
-                avio_w8(s, 4); /* tag length */
-                avio_wl32(s, stream->par->codec_tag);
+            if (version == 5) {
+                avio_wb16(s, coded_frame_size);
+                avio_wb32(s, 0);
+                avio_wb32(s, stream->par->sample_rate<<16); /* sample rate */
+                avio_wb32(s, stream->par->sample_rate<<16); /* sample rate */
+                avio_wb16(s, 0x10);
+                avio_wb16(s, stream->par->channels);
+                avio_wb32(s, 0x76627266);
+                stream->deint_id = DEINT_ID_VBRF;
+                if (stream->par->codec_tag) {
+                    avio_wl32(s, stream->par->codec_tag);
+                } else {
+                    av_log(ctx, AV_LOG_ERROR, "Invalid codec tag\n");
+                    return AVERROR(EINVAL);
+                }
+                avio_wb16(s, 0x0100); /* title length set interleaved flag to 1*/
+                avio_wb16(s, 0); /* author length */
+                if (stream->par->extradata_size > 0) {
+                    avio_wb32(s, stream->par->extradata_size + 1); /* tag length */
+                    avio_w8(s, 2); /* tag length */
+                    for(j = 0; j< stream->par->extradata_size; j++) {
+                        avio_w8(s, stream->par->extradata[j]); /* end of header */
+                    }
+                } else {
+                    avio_wb32(s, 0);
+                }
             } else {
-                av_log(ctx, AV_LOG_ERROR, "Invalid codec tag\n");
-                return -1;
+                avio_wb32(s, 0);
+                avio_wb16(s, stream->par->sample_rate); /* sample rate */
+                avio_wb32(s, 0x10);
+                avio_wb16(s, stream->par->channels);
+                put_str8(s, "Int0"); /* codec name */
+                if (stream->par->codec_tag) {
+                    avio_w8(s, 4); /* tag length */
+                    avio_wl32(s, stream->par->codec_tag);
+                } else {
+                    av_log(ctx, AV_LOG_ERROR, "Invalid codec tag\n");
+                    return -1;
+                }
+                avio_wb16(s, 0); /* title length */
+                avio_wb16(s, 0); /* author length */
+                avio_wb16(s, 0); /* copyright length */
+                avio_w8(s, 0);   /* end of header */
             }
-            avio_wb16(s, 0); /* title length */
-            avio_wb16(s, 0); /* author length */
-            avio_wb16(s, 0); /* copyright length */
-            avio_w8(s, 0); /* end of header */
         } else {
             /* video codec info */
             avio_wb32(s,34); /* size */
             ffio_wfourcc(s, "VIDO");
-            if(stream->par->codec_id == AV_CODEC_ID_RV10)
+            switch (stream->par->codec_id) {
+            case AV_CODEC_ID_RV10:
                 ffio_wfourcc(s,"RV10");
-            else
+                break;
+            case AV_CODEC_ID_RV20:
                 ffio_wfourcc(s,"RV20");
+                break;
+            case AV_CODEC_ID_RV30:
+                ffio_wfourcc(s,"RV30");
+                break;
+            case AV_CODEC_ID_RV40:
+                ffio_wfourcc(s,"RV40");
+                break;
+            case AV_CODEC_ID_RV60:
+                ffio_wfourcc(s,"RV60");
+                break;
+            }
+
             avio_wb16(s, stream->par->width);
             avio_wb16(s, stream->par->height);
 
@@ -259,17 +348,44 @@ static int rv10_write_header(AVFormatContext *ctx,
 
             avio_wb16(s, stream->frame_rate.num / stream->frame_rate.den); /* frames per seconds ? */
             avio_wb32(s,0);     /* unknown meaning */
-            avio_wb16(s, stream->frame_rate.num / stream->frame_rate.den);  /* unknown meaning */
-            avio_wb32(s,0);     /* unknown meaning */
-            avio_wb16(s, 8);    /* unknown meaning */
-            /* Seems to be the codec version: only use basic H.263. The next
-               versions seems to add a differential DC coding as in
-               MPEG... nothing new under the sun. */
-            if(stream->par->codec_id == AV_CODEC_ID_RV10)
-                avio_wb32(s,0x10000000);
-            else
-                avio_wb32(s,0x20103001);
-            //avio_wb32(s,0x10003000);
+
+            if(rm->mode & MODE_RMVB) {
+                avio_wb16(s, stream->frame_rate.num / stream->frame_rate.den);  /* unknown meaning */
+                avio_wb32(s,0);     /* unknown meaning */
+                avio_wb16(s, 8);    /* unknown meaning */
+                /* Seems to be the codec version: only use basic H.263. The next
+                   versions seems to add a differential DC coding as in
+                   MPEG... nothing new under the sun. */
+                if(stream->par->codec_id == AV_CODEC_ID_RV10)
+                    avio_wb32(s,0x10000000);
+                else
+                    avio_wb32(s,0x20103001);
+            } else {
+                avio_wb32(s, ((int)av_q2d(stream->frame_rate)*(1<<16)));  /* unknown meaning */
+                if (stream->par->codec_id == AV_CODEC_ID_RV10 ||
+                    stream->par->codec_id == AV_CODEC_ID_RV20 ||
+                    stream->par->codec_id == AV_CODEC_ID_RV40) {
+                    avio_wb32(s, 8);    /* unknown meaning */
+                    if (stream->par->codec_id == AV_CODEC_ID_RV10) {
+                        avio_wb32(s,0x10000000);
+                    } else if (stream->par->codec_id == AV_CODEC_ID_RV20) {
+                        avio_wb32(s,0x20103001);
+                    } else { // AV_CODEC_ID_RV40
+                        avio_wb32(s,0x40008000);
+                    }
+                } else if (stream->par->extradata_size >0) {
+                    for (j = 0; j< stream->par->extradata_size; j++) {
+                        avio_w8(s, stream->par->extradata[j]); /* end of header */
+                    }
+                } else if (!stream->par->extradata_size &&
+                           stream->par->codec_id == AV_CODEC_ID_RV60) {
+                    avio_wb32(s, 0x01081000);
+                    avio_wb32(s, 0x40008000);
+                    avio_wb16(s, 0x0);
+                    avio_wb16(s, stream->par->width);
+                    avio_wb16(s, stream->par->height);
+                }
+            }
         }
     }
 
@@ -282,19 +398,29 @@ static int rv10_write_header(AVFormatContext *ctx,
 
     /* data stream */
     ffio_wfourcc(s, "DATA");
-    avio_wb32(s,data_size + 10 + 8);
-    avio_wb16(s,0);
 
-    avio_wb32(s, nb_packets); /* number of packets */
-    avio_wb32(s,0); /* next data header */
+    if (rm->mode & MODE_RMVB) {
+        avio_wb32(s, data_size + 10 + 8);
+        avio_wb16(s, 0);
+        avio_wb32(s, nb_packets); /* number of packets */
+        avio_wb32(s, 0);          /* next data header */
+    } else {
+        avio_wb32(s, 0);
+        avio_wb16(s, 2);
+        avio_wb32(s, nb_packets);     /* number of packets */
+        avio_wb64(s, 0);              /* next data header */
+        avio_wb64(s, data_size + 30); /* updated_size */
+    }
+
     return 0;
 }
 
 static void write_packet_header(AVFormatContext *ctx, StreamInfo *stream,
-                                int length, int key_frame)
+                                int length, int key_frame, AVPacket *pkt)
 {
     int timestamp;
     AVIOContext *s = ctx->pb;
+    RMMuxContext *rm = ctx->priv_data;
 
     stream->nb_packets++;
     stream->packet_total_size += length;
@@ -304,7 +430,11 @@ static void write_packet_header(AVFormatContext *ctx, StreamInfo *stream,
     avio_wb16(s,0); /* version */
     avio_wb16(s,length + 12);
     avio_wb16(s, stream->num); /* stream number */
-    timestamp = av_rescale_q_rnd(stream->nb_frames, (AVRational){1000, 1}, stream->frame_rate, AV_ROUND_ZERO);
+    if(pkt && rm->mode & MODE_RMHD) {
+        timestamp = pkt->pts;
+    } else {
+        timestamp = av_rescale_q_rnd(stream->nb_frames, (AVRational){1000, 1}, stream->frame_rate, AV_ROUND_ZERO);
+    }
     avio_wb32(s, timestamp); /* timestamp */
     avio_w8(s, 0); /* reserved */
     avio_w8(s, key_frame ? 2 : 0); /* flags */
@@ -316,6 +446,12 @@ static int rm_write_header(AVFormatContext *s)
     StreamInfo *stream;
     int n;
     AVCodecParameters *par;
+
+    rm->mode = MODE_RMVB;
+
+    if (s->oformat && !strcmp("rmhd", s->oformat->name)) {
+        rm->mode = MODE_RMHD;
+    }
 
     if (s->nb_streams > 2) {
         av_log(s, AV_LOG_ERROR, "At most 2 streams are currently supported for muxing in RM\n");
@@ -334,6 +470,10 @@ static int rm_write_header(AVFormatContext *s)
         stream->bit_rate = par->bit_rate;
         stream->par = par;
 
+        if (rm->mode & MODE_RMHD) {
+            avpriv_set_pts_info(st, 32, 1, 1000);
+        }
+
         switch (par->codec_type) {
         case AVMEDIA_TYPE_AUDIO:
             rm->audio_stream = stream;
@@ -346,8 +486,12 @@ static int rm_write_header(AVFormatContext *s)
             break;
         case AVMEDIA_TYPE_VIDEO:
             rm->video_stream = stream;
-            // TODO: should be avg_frame_rate
-            stream->frame_rate = av_inv_q(st->time_base);
+            if (st->codecpar->codec_id == AV_CODEC_ID_RV40 ||
+                st->codecpar->codec_id == AV_CODEC_ID_RV60) {
+                stream->frame_rate = st->avg_frame_rate;
+            } else {
+                stream->frame_rate = av_inv_q(st->time_base);
+            }
             /* XXX: dummy values */
             stream->packet_max_size = 4096;
             stream->nb_packets = 0;
@@ -364,29 +508,37 @@ static int rm_write_header(AVFormatContext *s)
     return 0;
 }
 
-static int rm_write_audio(AVFormatContext *s, const uint8_t *buf, int size, int flags)
+static int rm_write_audio(AVFormatContext *s, const uint8_t *buf,
+                          int size, int flags, AVPacket *pkt)
 {
     RMMuxContext *rm = s->priv_data;
     AVIOContext *pb = s->pb;
     StreamInfo *stream = rm->audio_stream;
     int i;
 
-    write_packet_header(s, stream, size, !!(flags & AV_PKT_FLAG_KEY));
-
     if (stream->par->codec_id == AV_CODEC_ID_AC3) {
         /* for AC-3, the words seem to be reversed */
+        write_packet_header(s, stream, size, !!(flags & AV_PKT_FLAG_KEY), pkt);
         for (i = 0; i < size; i += 2) {
             avio_w8(pb, buf[i + 1]);
             avio_w8(pb, buf[i]);
         }
+    } else if (stream->deint_id == DEINT_ID_VBRF &&
+               stream->par->codec_id == AV_CODEC_ID_AAC) {
+        write_packet_header(s, stream, size + 4, !!(flags & AV_PKT_FLAG_KEY), pkt);
+        avio_wb16(pb, 0x10); // total frame size
+        avio_wb16(pb, size & 0xFFFF); // total frame size
+        avio_write(pb, buf, size);
     } else {
+        write_packet_header(s, stream, size, !!(flags & AV_PKT_FLAG_KEY), pkt);
         avio_write(pb, buf, size);
     }
     stream->nb_frames++;
     return 0;
 }
 
-static int rm_write_video(AVFormatContext *s, const uint8_t *buf, int size, int flags)
+static int rm_write_video(AVFormatContext *s, const uint8_t *buf,
+                          int size, int flags, AVPacket *pkt)
 {
     RMMuxContext *rm = s->priv_data;
     AVIOContext *pb = s->pb;
@@ -395,32 +547,78 @@ static int rm_write_video(AVFormatContext *s, const uint8_t *buf, int size, int 
 
     /* XXX: this is incorrect: should be a parameter */
 
-    /* Well, I spent some time finding the meaning of these bits. I am
-       not sure I understood everything, but it works !! */
-    if (size > MAX_PACKET_SIZE) {
-        av_log(s, AV_LOG_ERROR, "Muxing packets larger than 64 kB (%d) is not supported\n", size);
-        return AVERROR_PATCHWELCOME;
-    }
-    write_packet_header(s, stream, size + 7 + (size >= 0x4000)*4, key_frame);
-    /* bit 7: '1' if final packet of a frame converted in several packets */
-    avio_w8(pb, 0x81);
-    /* bit 7: '1' if I-frame. bits 6..0 : sequence number in current
-       frame starting from 1 */
-    if (key_frame) {
-        avio_w8(pb, 0x81);
-    } else {
-        avio_w8(pb, 0x01);
-    }
-    if(size >= 0x4000){
-        avio_wb32(pb, size); /* total frame size */
-        avio_wb32(pb, size); /* offset from the start or the end */
-    }else{
-        avio_wb16(pb, 0x4000 | size); /* total frame size */
-        avio_wb16(pb, 0x4000 | size); /* offset from the start or the end */
-    }
-    avio_w8(pb, stream->nb_frames & 0xff);
+    if (stream->par->codec_id == AV_CODEC_ID_RV30 ||
+        stream->par->codec_id == AV_CODEC_ID_RV40 ||
+        stream->par->codec_id == AV_CODEC_ID_RV60) {
+         const uint8_t* seg_buf = NULL;
+         int seg_offset = 0;
+         int segments   = buf[0] + 1;
+         int total_size = size - (1 + segments * 8);
+         int seg_size;
+         uint8_t byte1;
+         uint8_t byte2;
+         int part_val;
+         int i;
 
-    avio_write(pb, buf, size);
+         for (i = 0; i < segments; i++) {
+            seg_buf = buf + 1 + segments * 8 + AV_RL32(buf + 5 + i * 8);
+            if (segments - i > 1) {
+                seg_size = AV_RL32(buf + 13 + 8 * i) - AV_RL32(buf + 5 + 8 * i);
+            } else {
+                seg_size = buf + size - seg_buf;
+            }
+
+            if ((i + 1) == segments) {
+                byte1 = 0x80 | (0x3F & (segments >> 1));
+                part_val = seg_size;
+            } else {
+                byte1 = 0x3F & (segments >> 1);
+                part_val = seg_offset;
+            }
+            byte2 = (0x80 & (segments << 7)) | (0x7f & (i + 1));
+            write_packet_header(s, stream, seg_size + 7 + (total_size >= 0x4000) * 2 + (part_val >= 0x4000) * 2, key_frame, pkt);
+            avio_w8(pb, byte1);
+            avio_w8(pb, byte2);
+            if (total_size >= 0x4000) {
+                avio_wb32(pb, total_size); // total frame size
+            } else {
+                avio_wb16(pb, 0x4000 | total_size); // total frame size
+            }
+            if (part_val >= 0x4000) {
+                avio_wb32(pb, part_val); // offset from the start or the end
+            } else {
+                avio_wb16(pb, 0x4000 | part_val); // offset from the start or the end
+            }
+            seg_offset += seg_size;
+            avio_w8(pb, stream->nb_frames & 0xff);
+            avio_write(pb, seg_buf, seg_size);
+        }
+    }else{
+        if (size > MAX_PACKET_SIZE) {
+            av_log(s, AV_LOG_ERROR, "Muxing packets larger than 64 kB (%d) is not supported\n", size);
+            return AVERROR_PATCHWELCOME;
+          }
+        write_packet_header(s, stream, size + 7 + (size >= 0x4000)*4, key_frame, pkt);
+        // bit 7: '1' if final packet of a frame converted in several packets
+        avio_w8(pb, 0x81);
+        // bit 7: '1' if I frame. bits 6..0 : sequence number in current
+        // frame starting from 1
+        if (key_frame) {
+            avio_w8(pb, 0x81);
+        } else {
+            avio_w8(pb, 0x01);
+        }
+        if (size >= 0x4000) {
+            avio_wb32(pb, size); /* total frame size */
+            avio_wb32(pb, size); /* offset from the start or the end */
+        } else {
+            avio_wb16(pb, 0x4000 | size); /* total frame size */
+            avio_wb16(pb, 0x4000 | size); /* offset from the start or the end */
+        }
+        avio_w8(pb, stream->nb_frames & 0xff);
+
+        avio_write(pb, buf, size);
+    }
 
     stream->nb_frames++;
     return 0;
@@ -430,23 +628,72 @@ static int rm_write_packet(AVFormatContext *s, AVPacket *pkt)
 {
     if (s->streams[pkt->stream_index]->codecpar->codec_type ==
         AVMEDIA_TYPE_AUDIO)
-        return rm_write_audio(s, pkt->data, pkt->size, pkt->flags);
+        return rm_write_audio(s, pkt->data, pkt->size, pkt->flags, pkt);
     else
-        return rm_write_video(s, pkt->data, pkt->size, pkt->flags);
+        return rm_write_video(s, pkt->data, pkt->size, pkt->flags, pkt);
 }
 
 static int rm_write_trailer(AVFormatContext *s)
 {
     RMMuxContext *rm = s->priv_data;
-    int data_size, index_pos, i;
+    int data_size, index_pos, i, j;
     AVIOContext *pb = s->pb;
+    AVIndexEntry *entries          = NULL;
+    unsigned char *data_offset_ptr = NULL;
+    unsigned int index_data_pos    = 0;
+    unsigned int timestamp, n_pkts;
+    int64_t offset;
 
     if (s->pb->seekable & AVIO_SEEKABLE_NORMAL) {
         /* end of file: finish to write header */
         index_pos = avio_tell(pb);
         data_size = index_pos - rm->data_pos;
 
-        /* FIXME: write index */
+        /* write index */
+        for (i = 0; i < s->nb_streams; i++) {
+            AVStream *st = s->streams[i];
+            entries      = st->index_entries;
+            n_pkts       = st->nb_index_entries;
+            if (n_pkts < 1) {
+                break;
+            }
+            if (data_offset_ptr) {
+                /* patch data offset field */
+                index_data_pos = avio_tell(pb);
+                data_offset_ptr[0] = index_data_pos >> 24;
+                data_offset_ptr[1] = index_data_pos >> 16;
+                data_offset_ptr[2] = index_data_pos >> 8;
+                data_offset_ptr[3] = index_data_pos;
+            }
+            ffio_wfourcc(pb,"INDX");
+            if (rm->mode & MODE_RMVB) {
+                avio_wb32(pb, n_pkts * 14 + 20);
+            } else {
+                avio_wb32(pb, n_pkts * 18 + 24);
+            }
+            avio_wb16(pb, 2);
+            avio_wb32(pb, n_pkts);
+            avio_wb16(pb, st->id);
+            data_offset_ptr = pb->buf_ptr;
+            if (rm->mode & MODE_RMVB) {
+                avio_wb32(pb,0);
+            } else {
+                avio_wb64(pb, 0); /* data offset gets written later */
+            }
+
+            for (j = 0; j < n_pkts; j++) {
+                timestamp = entries[j].timestamp;
+                offset    = entries[j].pos;
+                avio_wb16(pb, 2);
+                avio_wb32(pb, timestamp);
+                if (rm->mode & MODE_RMVB) {
+                    avio_wb32(pb, (int32_t)offset);
+                } else {
+                    avio_wb64(pb, offset);
+                }
+                avio_wb32(pb, 0);
+            }
+        }
 
         /* undocumented end header */
         avio_wb32(pb, 0);
@@ -474,6 +721,20 @@ AVOutputFormat ff_rm_muxer = {
     .priv_data_size    = sizeof(RMMuxContext),
     .audio_codec       = AV_CODEC_ID_AC3,
     .video_codec       = AV_CODEC_ID_RV10,
+    .write_header      = rm_write_header,
+    .write_packet      = rm_write_packet,
+    .write_trailer     = rm_write_trailer,
+    .codec_tag         = (const AVCodecTag* const []){ ff_rm_codec_tags, 0 },
+};
+
+AVOutputFormat ff_rmhd_muxer = {
+    .name              = "rmhd",
+    .long_name         = NULL_IF_CONFIG_SMALL("RealMedia HD"),
+    .mime_type         = "application/vnd.rn-realmedia",
+    .extensions        = "rmhd",
+    .priv_data_size    = sizeof(RMMuxContext),
+    .audio_codec       = AV_CODEC_ID_AAC,
+    .video_codec       = AV_CODEC_ID_RV60,
     .write_header      = rm_write_header,
     .write_packet      = rm_write_packet,
     .write_trailer     = rm_write_trailer,
