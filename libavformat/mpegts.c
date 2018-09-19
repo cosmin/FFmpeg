@@ -31,18 +31,21 @@
 #include "libavcodec/bytestream.h"
 #include "libavcodec/get_bits.h"
 #include "libavcodec/opus.h"
+#include "libavcodec/librv11util.h"
 #include "avformat.h"
 #include "mpegts.h"
 #include "internal.h"
 #include "avio_internal.h"
 #include "mpeg.h"
 #include "isom.h"
+#include "rm.h"
 
 /* maximum size in which we look for synchronization if
  * synchronization is lost */
 #define MAX_RESYNC_SIZE 65536
 
-#define MAX_PES_PAYLOAD 200 * 1024
+#define MAX_PES_PAYLOAD 4000 * 1024
+#define MAX_RV11_HEAD_LENGTH 1200
 
 #define MAX_MP4_DESCR_COUNT 16
 
@@ -738,6 +741,7 @@ static const StreamType ISO_types[] = {
     { 0x42, AVMEDIA_TYPE_VIDEO, AV_CODEC_ID_CAVS       },
     { 0xd1, AVMEDIA_TYPE_VIDEO, AV_CODEC_ID_DIRAC      },
     { 0xea, AVMEDIA_TYPE_VIDEO, AV_CODEC_ID_VC1        },
+    { 0xd6, AVMEDIA_TYPE_VIDEO, AV_CODEC_ID_RV60       },
     { 0 },
 };
 
@@ -922,9 +926,25 @@ static int new_pes_packet(PESContext *pes, AVPacket *pkt)
 
     av_init_packet(pkt);
 
-    pkt->buf  = pes->buffer;
-    pkt->data = pes->buffer->data;
-    pkt->size = pes->data_index;
+    if (pes->stream_type == STREAM_TYPE_VIDEO_RV)
+    {
+        AVBufferRef *buffer = av_buffer_alloc(MAX_RV11_HEAD_LENGTH + pes->data_index + AV_INPUT_BUFFER_PADDING_SIZE);
+        if (!buffer)
+        {
+            av_log(pes->stream, AV_LOG_ERROR, "malloc memory for packet failed!\n");
+            return -1;
+        }
+
+        pkt->buf  = buffer;
+        pkt->data = buffer->data;
+        pkt->size = pes->data_index;
+    }
+    else
+    {
+        pkt->buf  = pes->buffer;
+        pkt->data = pes->buffer->data;
+        pkt->size = pes->data_index;
+    }
 
     if (pes->total_size != MAX_PES_PAYLOAD &&
         pes->pes_header_size + pes->data_index != pes->total_size +
@@ -932,8 +952,24 @@ static int new_pes_packet(PESContext *pes, AVPacket *pkt)
         av_log(pes->stream, AV_LOG_WARNING, "PES packet size mismatch\n");
         pes->flags |= AV_PKT_FLAG_CORRUPT;
     }
+    if (pes->stream_type == STREAM_TYPE_VIDEO_RV)
+        memcpy(pkt->data, pes->buffer->data, pes->data_index);
     memset(pkt->data + pkt->size, 0, AV_INPUT_BUFFER_PADDING_SIZE);
 
+    if (pes->stream_type == STREAM_TYPE_VIDEO_RV) {
+        int num_packet = get_segments_number(pkt->size);
+        int rv_head_size = 8*num_packet +1;
+        if(num_packet <0){
+            av_log(pes->stream, AV_LOG_ERROR, "packet size wrong\n");
+        }
+
+        if(rv_head_size>MAX_RV11_HEAD_LENGTH){
+            av_log(pes->stream, AV_LOG_ERROR, "packet size is too large %d\n", pkt->size);
+        }
+        memmove(pkt->data+rv_head_size, pkt->data, pkt->size);
+        write_rv_frame_head(pkt->data, num_packet);
+        pkt->size +=rv_head_size;
+    }
     // Separate out the AC3 substream from an HDMV combined TrueHD/AC3 PID
     if (pes->sub_st && pes->stream_type == 0x83 && pes->extended_stream_id == 0x76)
         pkt->stream_index = pes->sub_st->index;
@@ -945,7 +981,8 @@ static int new_pes_packet(PESContext *pes, AVPacket *pkt)
     pkt->pos   = pes->ts_packet_pos;
     pkt->flags = pes->flags;
 
-    pes->buffer = NULL;
+    if (pes->stream_type != STREAM_TYPE_VIDEO_RV)
+        pes->buffer = NULL;
     reset_pes_packet_state(pes);
 
     sd = av_packet_new_side_data(pkt, AV_PKT_DATA_MPEGTS_STREAM_ID, 1);
@@ -1043,6 +1080,7 @@ static int mpegts_push_data(MpegTSFilter *filter,
     MpegTSContext *ts = pes->ts;
     const uint8_t *p;
     int ret, len, code;
+    int flags = 0;
 
     if (!ts->pkt)
         return 0;
@@ -1054,7 +1092,13 @@ static int mpegts_push_data(MpegTSFilter *filter,
                 return ret;
             ts->stop_parse = 1;
         } else {
+            if(pes->flags & AV_PKT_FLAG_KEY){
+                flags = AV_PKT_FLAG_KEY;
+            }
             reset_pes_packet_state(pes);
+            if(flags){
+                pes->flags = flags;
+            }
         }
         pes->state         = MPEGTS_HEADER;
         pes->ts_packet_pos = pos;
@@ -1107,11 +1151,21 @@ static int mpegts_push_data(MpegTSFilter *filter,
                     if (!pes->total_size)
                         pes->total_size = MAX_PES_PAYLOAD;
 
-                    /* allocate pes buffer */
-                    pes->buffer = av_buffer_alloc(pes->total_size +
-                                                  AV_INPUT_BUFFER_PADDING_SIZE);
-                    if (!pes->buffer)
-                        return AVERROR(ENOMEM);
+                    //mpegts_find_stream_type(st, pes->stream_type, ISO_types);
+                    //#define STREAM_TYPE_VIDEO_RV        0xd6
+                    if (pes->stream_type == STREAM_TYPE_VIDEO_RV) {
+                        pes->buffer = av_buffer_alloc(MAX_RV11_HEAD_LENGTH + pes->total_size +
+                                                      AV_INPUT_BUFFER_PADDING_SIZE);
+                        if (!pes->buffer)
+                            return AVERROR(ENOMEM);
+                    }
+                    else {
+                        /* allocate pes buffer */
+                        pes->buffer = av_buffer_alloc(pes->total_size +
+                                                      AV_INPUT_BUFFER_PADDING_SIZE);
+                        if (!pes->buffer)
+                            return AVERROR(ENOMEM);
+                    }
 
                     if (code != 0x1bc && code != 0x1bf && /* program_stream_map, private_stream_2 */
                         code != 0x1f0 && code != 0x1f1 && /* ECM, EMM */
@@ -1269,8 +1323,13 @@ skip:
                     if (ret < 0)
                         return ret;
                     pes->total_size = MAX_PES_PAYLOAD;
-                    pes->buffer = av_buffer_alloc(pes->total_size +
-                                                  AV_INPUT_BUFFER_PADDING_SIZE);
+                    if (pes->stream_type == STREAM_TYPE_VIDEO_RV) {
+                        pes->buffer = av_buffer_alloc(MAX_RV11_HEAD_LENGTH + pes->total_size +
+                                                      AV_INPUT_BUFFER_PADDING_SIZE);
+                    } else {
+                        pes->buffer = av_buffer_alloc(pes->total_size +
+                                                      AV_INPUT_BUFFER_PADDING_SIZE);
+                    }
                     if (!pes->buffer)
                         return AVERROR(ENOMEM);
                     ts->stop_parse = 1;
@@ -1686,6 +1745,7 @@ int ff_parse_mpeg2_descriptor(AVFormatContext *fc, AVStream *st, int stream_type
     int desc_len, desc_tag, desc_es_id, ext_desc_tag, channels, channel_config_code;
     char language[252];
     int i;
+    int codec_major_version = 0;
 
     desc_tag = get8(pp, desc_list_end);
     if (desc_tag < 0)
@@ -1704,6 +1764,29 @@ int ff_parse_mpeg2_descriptor(AVFormatContext *fc, AVStream *st, int stream_type
         mpegts_find_stream_type(st, desc_tag, DESC_types);
 
     switch (desc_tag) {
+    case 0x9d: /* RVHD descriptor */
+        codec_major_version = get8(pp, desc_end);
+        if((codec_major_version&0xFF) ==0x60){
+            st->codecpar->codec_id = AV_CODEC_ID_RV60;
+        }
+        st->codecpar->width = get16(pp, desc_end);
+        st->codecpar->height = get16(pp, desc_end);
+        if((desc_end - *pp) <8){
+            return AVERROR_INVALIDDATA;
+        }
+        //uint8_t *extradata = NULL;
+        if (st->codecpar->extradata == NULL) {
+            if (ff_alloc_extradata(st->codecpar, 14)) {
+                return AVERROR(ENOMEM);
+            }
+        }
+        if (st->codecpar->extradata_size != 14) {
+            return AVERROR_INVALIDDATA;
+        }
+        //extradata = st->codec->extradata;
+        memcpy(st->codecpar->extradata, *pp, 14);
+        *pp += 8;
+        break;
     case 0x02: /* video stream descriptor */
         if (get8(pp, desc_end) & 0x1) {
             st->disposition |= AV_DISPOSITION_STILL_IMAGE;
@@ -2517,6 +2600,11 @@ static int handle_packet(MpegTSContext *ts, const uint8_t *packet)
         int pcr_l;
         if (parse_pcr(&pcr_h, &pcr_l, packet) == 0)
             tss->last_pcr = pcr_h * 300 + pcr_l;
+        //ts random access indicator
+        if((p[1]) & 0x40){
+            PESContext *pes   = tss->u.pes_filter.opaque;
+            pes->flags |= AV_PKT_FLAG_KEY;
+        }
         /* skip adaptation field */
         p += p[0] + 1;
     }

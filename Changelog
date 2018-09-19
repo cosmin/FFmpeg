@@ -30,6 +30,7 @@ version <next>:
 - amultiply filter
 - Block-Matching 3d (bm3d) denoising filter
 - acrossover filter
+- RMHD (RV60) support using librv11
 
 
 version 4.0:

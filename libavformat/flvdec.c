@@ -32,13 +32,16 @@
 #include "libavutil/mathematics.h"
 #include "libavcodec/bytestream.h"
 #include "libavcodec/mpeg4audio.h"
+#include "libavcodec/librv11util.h"
 #include "avformat.h"
 #include "internal.h"
 #include "avio_internal.h"
 #include "flv.h"
+#include "rm.h"
 
 #define VALIDATE_INDEX_TS_THRESH 2500
 
+#define MAX_RV11_HEAD_LENGTH 1200
 #define RESYNC_BUFFER_SIZE (1<<20)
 
 typedef struct FLVContext {
@@ -293,6 +296,8 @@ static int flv_same_video_codec(AVCodecParameters *vpar, int flags)
         return vpar->codec_id == AV_CODEC_ID_VP6A;
     case FLV_CODECID_H264:
         return vpar->codec_id == AV_CODEC_ID_H264;
+    case FLV_CODECID_RV60:
+        return vpar->codec_id == AV_CODEC_ID_RV60;
     default:
         return vpar->codec_tag == flv_codecid;
     }
@@ -341,6 +346,56 @@ static int flv_set_video_codec(AVFormatContext *s, AVStream *vstream,
     case FLV_CODECID_MPEG4:
         par->codec_id = AV_CODEC_ID_MPEG4;
         ret = 3;
+        break;
+    case FLV_CODECID_RV60:
+        par->codec_id = AV_CODEC_ID_RV60;
+        if ( 0 == par->extradata_size ) {
+            AVDictionaryEntry* entry = NULL;
+            entry = av_dict_get(s->metadata, "profile", NULL, AV_DICT_IGNORE_SUFFIX);
+            if( NULL != entry) {
+                // The first 8 bytes were the presentation frame size
+                char  opaque[256] = {0};
+                char* p_opaque = opaque;
+                char* p = entry->value;
+                int i = 0;
+                short w,h;
+                int value_size =  strlen(p);
+                // the max size of string format size is 32
+                if( value_size < 32) {
+
+                    // get the flags
+                    int flag = 0;
+                    memcpy(&flag,p,4);
+                    p += 4;
+                    value_size -= 4;
+
+                    for(i = 0; i < value_size; i++) {
+                        int mask =  0x01 << (i/7 + i);
+                        if(mask & flag){
+                            opaque[i] = 0x00;
+                        }else{
+                            opaque[i] = p[i];
+                        }
+                    }
+
+                    p_opaque = opaque;
+                    memcpy(&w,p_opaque,2);
+                    p_opaque += 2;
+                    par->width = w;
+                    memcpy( &h,p_opaque,2);
+                    p_opaque += 2;
+                    par->height= h;
+                    value_size -= 4;
+                    // RV60 has 14 bytes opaque data
+                    if (ff_alloc_extradata(par, value_size)) {
+                        return AVERROR(ENOMEM);
+                    }
+                    if (par->extradata_size == value_size) {
+                        memcpy(par->extradata,p_opaque,value_size);
+                    }
+                }
+            }
+        }
         break;
     default:
         avpriv_request_sample(s, "Video codec (%x)", flv_codecid);
@@ -1226,7 +1281,31 @@ retry_duration:
         goto leave;
     }
 
-    ret = av_get_packet(s->pb, pkt, size);
+    if( st->codecpar->codec_id == AV_CODEC_ID_RV60 ){
+
+        // We have to add a extra segment info data section at the head of the
+        // output packet
+        int num_packet = get_segments_number(size);
+        int rv_head_size = 0;
+        if(num_packet < 0){
+            av_log(s, AV_LOG_ERROR, "packet size wrong\n");
+        }
+
+        rv_head_size = 8*num_packet +1;
+        if(rv_head_size>MAX_RV11_HEAD_LENGTH){
+            av_log(s, AV_LOG_ERROR, "packet size is too large %d\n", size);
+        }
+
+        //Here we write this extra data to a temperary buffer and then
+        // using this buffer to initialize the output packet and append
+        // real frame data at the end of this packet;
+        av_new_packet(pkt,rv_head_size);
+        write_rv_frame_head(pkt->data,num_packet);
+
+        ret = av_append_packet(s->pb,pkt,size);
+    } else {
+        ret = av_get_packet(s->pb, pkt, size);
+    }
     if (ret < 0)
         return ret;
     pkt->dts          = dts;

@@ -46,6 +46,7 @@ static const AVCodecTag flv_video_codec_ids[] = {
     { AV_CODEC_ID_VP6,      FLV_CODECID_VP6 },
     { AV_CODEC_ID_VP6A,     FLV_CODECID_VP6A },
     { AV_CODEC_ID_H264,     FLV_CODECID_H264 },
+    { AV_CODEC_ID_RV60,     FLV_CODECID_RV60},
     { AV_CODEC_ID_NONE,     0 }
 };
 
@@ -311,6 +312,58 @@ static void write_metadata(AVFormatContext *s, unsigned int ts)
         put_amf_double(pb, s->duration / AV_TIME_BASE);
     }
 
+    // write the opaque data into medata in the cncoding method is AVCODEC_ID_RV60
+    if(flv->video_par && AV_CODEC_ID_RV60 == flv->video_par->codec_id) {
+
+        char opaque[256] = {0};
+        int width = 0;
+        int height = 0;
+        char *p = opaque;
+        char extra_data[256] = {0};
+        char* p_extra = extra_data;
+        int    extra_size = 4;
+        int i = 0;
+        short w,h;
+        int flag = 0;
+
+        width = flv->video_par->width;
+        height = flv->video_par->height;
+
+        w = width;
+        h = height;
+        memcpy(p_extra,&w,2);
+        p_extra += 2;
+        memcpy(p_extra,&h,2);
+        p_extra += 2;
+
+        // extra data size is 14, 4 btye presentation frame size, 4 byte flags
+        // the uplimit of this opaque data size is 32
+        if((flv->video_par->extradata_size > 0) &&
+            (flv->video_par->extradata_size + 8 < 32))
+        {
+            memcpy(p_extra,flv->video_par->extradata,flv->video_par->extradata_size);
+            extra_size += flv->video_par->extradata_size;
+            flag = 0x80808080;
+            // four bytes for the encoding flags
+            p += 4;
+            for(i = 0; i < extra_size; i++){
+                if( 0 == extra_data[i] ){
+                    int mask = 0x01 << (i/7 + i);
+                    flag |= mask;
+                    *p = 0x30;
+                } else {
+                    *p = extra_data[i] ;
+                }
+                p++;
+            }
+            memcpy(opaque, &flag, 4);
+            put_amf_string(pb, "profile");
+            avio_w8(pb, AMF_DATA_TYPE_STRING);
+            put_amf_string(pb, opaque);
+            metadata_count++;
+        }
+    }
+
     if (flv->video_par) {
         put_amf_string(pb, "width");
         put_amf_double(pb, flv->video_par->width);
@@ -375,6 +428,7 @@ static void write_metadata(AVFormatContext *s, unsigned int ts)
             ||!strcmp(tag->key, "hasCuePoints")
             ||!strcmp(tag->key, "hasMetadata")
             ||!strcmp(tag->key, "hasKeyframes")
+            ||(flv->video_par && (AV_CODEC_ID_RV60 == flv->video_par->codec_id) && !strcmp(tag->key,"profile"))
         ){
             av_log(s, AV_LOG_DEBUG, "Ignoring metadata for %s\n", tag->key);
             continue;
@@ -882,6 +936,7 @@ static int flv_write_packet(AVFormatContext *s, AVPacket *pkt)
     uint8_t *data = NULL;
     int flags = -1, flags_size, ret;
     int64_t cur_offset = avio_tell(pb);
+    int offset = 0;
 
     if (par->codec_type == AVMEDIA_TYPE_AUDIO && !pkt->size) {
         av_log(s, AV_LOG_WARNING, "Empty audio Packet\n");
@@ -969,6 +1024,15 @@ static int flv_write_packet(AVFormatContext *s, AVPacket *pkt)
         return AVERROR_INVALIDDATA;
         }
         av_log(s, AV_LOG_WARNING, "aac bitstream error\n");
+    }else if(par->codec_id == AV_CODEC_ID_RV60){
+        //Remove the segment info from RV11 video frame
+        int segments = pkt->data[0]+1;
+        int head_size = 1 + segments*8;
+        if(size <= head_size){
+            return AVERROR_INVALIDDATA;
+        }
+        size -= head_size;
+        offset = head_size;
     }
 
     /* check Speex packet duration */
@@ -1010,7 +1074,7 @@ static int flv_write_packet(AVFormatContext *s, AVPacket *pkt)
             avio_w8(pb, AMF_END_OF_OBJECT);
         } else {
             // just pass the metadata through
-            avio_write(pb, data ? data : pkt->data, size);
+            avio_write(pb, data ? data : pkt->data+offset, size);
         }
         /* write total size of tag */
         data_size = avio_tell(pb) - metadata_size_pos;
@@ -1036,7 +1100,7 @@ static int flv_write_packet(AVFormatContext *s, AVPacket *pkt)
             avio_wb24(pb, pkt->pts - pkt->dts);
         }
 
-        avio_write(pb, data ? data : pkt->data, size);
+        avio_write(pb, data ? data : pkt->data+offset, size);
 
         avio_wb32(pb, size + flags_size + 11); // previous tag size
         flv->duration = FFMAX(flv->duration,

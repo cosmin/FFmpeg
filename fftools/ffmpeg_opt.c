@@ -1775,7 +1775,7 @@ static OutputStream *new_video_stream(OptionsContext *o, AVFormatContext *oc, in
                      ost->logfile_prefix ? ost->logfile_prefix :
                                            DEFAULT_PASS_LOGFILENAME_PREFIX,
                      i);
-            if (!strcmp(ost->enc->name, "libx264")) {
+            if (!strcmp(ost->enc->name, "libx264") || !strcmp(ost->enc->name, "librv11enc")) {
                 av_dict_set(&ost->encoder_opts, "stats", logfilename, AV_DICT_DONT_OVERWRITE);
             } else {
                 if (video_enc->flags & AV_CODEC_FLAG_PASS2) {

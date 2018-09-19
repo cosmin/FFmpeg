@@ -291,6 +291,7 @@ static int mpegts_write_pmt(AVFormatContext *s, MpegTSService *service)
     MpegTSWrite *ts = s->priv_data;
     uint8_t data[SECTION_LENGTH], *q, *desc_length_ptr, *program_info_length_ptr;
     int val, stream_type, i, err = 0;
+    int rv_codec_version;
 
     q = data;
     put16(&q, 0xe000 | service->pcr_pid);
@@ -388,6 +389,9 @@ static int mpegts_write_pmt(AVFormatContext *s, MpegTSService *service)
             break;
         case AV_CODEC_ID_TIMED_ID3:
             stream_type = STREAM_TYPE_METADATA;
+            break;
+        case AV_CODEC_ID_RV60:
+            stream_type = STREAM_TYPE_VIDEO_RV;
             break;
         default:
             stream_type = STREAM_TYPE_PRIVATE_DATA;
@@ -631,6 +635,52 @@ static int mpegts_write_pmt(AVFormatContext *s, MpegTSService *service)
                 *q++ = 'C';
                 *q++ = '-';
                 *q++ = '1';
+            } else if (stream_type == STREAM_TYPE_VIDEO_RV) {
+                int width = 0;
+                int height = 0;
+                *q++ = 0x9d; /* RVHD descriptor */
+                if (st->codecpar->codec_id  == AV_CODEC_ID_RV60) {
+                    *q++ = 19;
+                } else {
+                    *q++ = 13;
+                }
+                rv_codec_version = 0x20;
+                if (st->codecpar->codec_id == AV_CODEC_ID_RV60) {
+                    rv_codec_version = 0x60;
+
+                }
+                *q++ = rv_codec_version;
+
+                width = st->codecpar->width;
+                height = st->codecpar->height;
+
+                put16(&q, width);
+                put16(&q, height);
+                if (st->codecpar->extradata_size >= 8) {
+                    memcpy(q, st->codecpar->extradata, st->codecpar->extradata_size);
+                    q += st->codecpar->extradata_size;
+                } else {
+                    if (st->codecpar->codec_id  == AV_CODEC_ID_RV60) {
+                        *q++ = 0x01; //spo_extra_flags
+                        *q++ = 0x08;
+                        *q++ = 0x10;
+                        *q++ = 0x00;
+                        //codec version, RV10=10, rv20=20,rv40=40 rv60=60,
+                        *q++ = 0x40;
+                        *q++ = 0x00;
+                        *q++ = 0x80;
+                        *q++ = 0x00;
+                        *q++ = 0x00;
+                        *q++ = 0x00;
+                        put16(&q, st->codecpar->width);
+                        put16(&q, st->codecpar->height);
+                    } else {
+                        *q++ = 0x0;
+                        *q++ = 0x0;
+                        *q++ = 0x0;
+                        *q++ = 0x08;
+                    }
+                }
             }
             break;
         case AVMEDIA_TYPE_DATA:
@@ -1729,6 +1779,17 @@ static int mpegts_write_packet_internal(AVFormatContext *s, AVPacket *pkt)
              * need to count the samples of that too! */
             av_log(s, AV_LOG_WARNING, "Got MPEG-TS formatted Opus data, unhandled");
         }
+    } else if (st->codecpar->codec_id == AV_CODEC_ID_RV60) {
+        //to rv60 remove head data of video frame, default is 9 byte
+        int segments = buf[0]+1;
+        int head_size = 1 + segments*8;
+        if(size <= head_size){
+            return -1;
+        }
+        size -= head_size;
+        //memmove(buf, buf+head_size, size);
+        //do not need move memory, it is ok if just use changed pointer
+        buf = buf+head_size;
     }
 
     if (pkt->dts != AV_NOPTS_VALUE) {

@@ -1457,6 +1457,98 @@ Set maximum NAL size in bytes.
 Allow skipping frames to hit the target bitrate if set to 1.
 @end table
 
+@section librv11
+
+RealVideo 11 (RV60) codec wrapper.
+
+Requires the presence of the librv11 SDK headers and
+libraries during configuration. The library is detected using
+@command{pkg-config}.
+
+For more information about the library see
+@url{http://www.rmhd.io/}.
+
+@subsection Options
+
+The following FFmpeg global options affect the configurations of the
+librv11 encoder.
+
+@table @option
+@item b
+Set the bitrate (as a number of bits per second).
+
+@item is_lossprotect
+Enable loss protection feature
+
+@item output_width
+Video encoded frame output width
+
+@item output_height
+Video encoded frame output height
+
+@item rc_strategy
+Which ratecontrol method to be used (default: bitrate)
+
+@table @samp
+@item bitrate
+@item quality
+@end table
+
+@item complexity
+Encoding complexity (default: medium)
+
+@table @samp
+@item verylow
+@item low
+@item medium
+@item high
+@end table
+
+@item framerate
+Max frame rate value
+
+@item resize_quality
+Video encoded frame resize quality (default: 1),
+
+@table @samp
+@item high
+@item fast
+@end table
+
+@item video_mode
+Motion quality (default: 50)
+
+@table @samp
+@item normal
+@item sharp
+@item smooth
+@end table
+
+@item max_keyint
+Max keyframe interval (default: 5),
+
+@item max_latency
+Max video latency on start (default: 4.0)
+
+@item vbrquality
+Vbr quality value (default: 60)
+
+@item passlogfile
+Filename for 2 pass encoding stats (default: rv11passstats.log)
+
+@item pon
+Picture order number (default: 0)
+
+@item vbr_opt (default: false)
+Vbr enabled
+
+@table @samp
+@item true
+@item false
+@end table
+
+@end table
+
 @section libtheora
 
 libtheora Theora encoder wrapper.

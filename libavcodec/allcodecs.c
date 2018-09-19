@@ -691,6 +691,8 @@ extern AVCodec ff_libopenjpeg_decoder;
 extern AVCodec ff_libopus_encoder;
 extern AVCodec ff_libopus_decoder;
 extern AVCodec ff_librsvg_decoder;
+extern AVCodec ff_librv11_encoder;
+extern AVCodec ff_librv11_decoder;
 extern AVCodec ff_libshine_encoder;
 extern AVCodec ff_libspeex_encoder;
 extern AVCodec ff_libspeex_decoder;
