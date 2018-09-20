@@ -26,23 +26,7 @@
 #include "libavutil/imgutils.h"
 #include "internal.h"
 #include "get_bits.h"
-
 #include "librv11dec.h"
-
-#if defined(_WIN32)
-#include <windows.h>
-static const char* lib_name= TEXT("librv11dec.dll");
-#define RMVBPLUSAPI __stdcall
-
-#else
-#include <dlfcn.h>
-#include <unistd.h>
-static const char* lib_name= "librv11dec.so";
-
-#define GetProcAddress dlsym
-#define FreeLibrary dlclose
-
-#endif /* _WIN32 */
 
 
 #define WK_MULTI_FRAME 1
@@ -51,67 +35,10 @@ static const char* lib_name= "librv11dec.so";
 #define OUTPUT_FRAME_NUMBER 6
 #endif
 
-typedef struct rv_decoder_symbols
-{
-    char* init;
-    char* free;
-    char* transform;
-    char* custom_message;
-    char* hive_message;
-} Symbols;
-
-
-#ifdef WIN32
-typedef HX_RESULT ( RMVBPLUSAPI *FPrv_backend_init) (void *prv10Init, void **global);
-
-
-typedef HX_RESULT ( RMVBPLUSAPI *rv_backend_init) (void *prv10Init, void **global);
-typedef HX_RESULT ( RMVBPLUSAPI *rv_backend_transform) (UCHAR *pRV10Packets,
-                                           UCHAR *pDecodedFrameBuffer,
-                                           void *pInputParams,
-                                           void *pOutputParams,
-                                           void *global);
-typedef HX_RESULT (RMVBPLUSAPI *rv_backend_custom_message) (UINT32 *msg_id,
-                                                   void *global);
-typedef HX_RESULT (RMVBPLUSAPI *rv_backend_hive_message) (UINT32 *msg,
-                                                 void *global);
-typedef HX_RESULT (RMVBPLUSAPI *rv_backend_free) (void* global);
-#else
-typedef HX_RESULT (*FPrv_backend_init) (void *prv10Init, void **global);
-
-
-typedef HX_RESULT (*rv_backend_init) (void *prv10Init, void **global);
-typedef HX_RESULT (*rv_backend_transform) (UCHAR *pRV10Packets,
-                                           UCHAR *pDecodedFrameBuffer,
-                                           void *pInputParams,
-                                           void *pOutputParams,
-                                           void *global);
-typedef HX_RESULT (*rv_backend_custom_message) (UINT32 *msg_id,
-                                                   void *global);
-typedef HX_RESULT (*rv_backend_hive_message) (UINT32 *msg,
-                                                 void *global);
-typedef HX_RESULT (*rv_backend_free) (void* global);
-#endif
-
-typedef struct rv_decoder_symbols_handle
-{
-    rv_backend_init init;
-    rv_backend_free free;
-    rv_backend_transform transform;
-    rv_backend_custom_message custom_message;
-    rv_backend_hive_message hive_message;
-} Symbols_handle;
-
 typedef struct LIBRMVBPLUSDecContext_struct {
     AVCodecContext *avctx;
     AVFrame out_frame;
     void *codec_status;
-#if defined(_WIN32)
-    HMODULE lib;
-#else
-    void* lib;
-#endif
-    Symbols_handle *symbols;
 
     uint32_t input_buf_size;
     uint32_t input_buf_num;
@@ -127,13 +54,6 @@ typedef struct LIBRMVBPLUSDecContext_struct {
     uint32_t more_frames;
 } LIBRMVBPLUSDecContext;
 
-static const char* codec_init           = "RV60toYUV420Init";
-static const char* codec_free           = "RV60toYUV420Free";
-static const char* codec_transform      = "RV60toYUV420Transform";
-static const char* codec_custom_message = "RV60toYUV420CustomMessage";
-static const char* codec_hive_message   = "RV60toYUV420HiveMessage";
-
-
 #define RV_MSG_ID_Decoder_Start_Sequence    20
 
 static av_cold int librmvbplus_init(AVCodecContext *avctx)
@@ -142,12 +62,6 @@ static av_cold int librmvbplus_init(AVCodecContext *avctx)
     GetBitContext gb;
     uint32_t SPO_extra_flags = 0;
     uint32_t stream_version = 0;
-#ifndef _WIN32
-    char strLibPath[512];
-    char decLibPath[512];
-    int i = 0;
-    int  cnt = 0;
-#endif
     rv_backend_init_params initParams;
     HX_RESULT result = 0;
     RV_MSG_Simple msg;
@@ -166,67 +80,6 @@ static av_cold int librmvbplus_init(AVCodecContext *avctx)
     SPO_extra_flags = get_bits_long(&gb, 32);
     stream_version = get_bits_long(&gb, 32);
 
-    //load drvc RV60 decoder library
-#ifndef _WIN32
-    memset(strLibPath,0,sizeof(strLibPath));
-    memset(decLibPath,0,sizeof(decLibPath));
-    cnt = readlink("/proc/self/exe",strLibPath,512);
-    if (cnt < 0 ||cnt > 512)
-    {
-       av_log(avctx,AV_LOG_ERROR,"Error,failed to get program path!\n");
-       return -1;
-    }
-
-    for(i = cnt; i >= 0; i--)
-    {
-      if(strLibPath[i] =='/')
-        {
-          strLibPath[i] = '\0';
-          break;
-        }
-    }
-
-    sprintf(decLibPath, "%s/%s", strLibPath, lib_name);
-#endif
-
-#if defined(_WIN32)
-    s->lib = LoadLibrary(TEXT("librv11dec.dll"));
-    if (!s->lib)
-    {
-      av_log(avctx,AV_LOG_INFO,"%s dlopen failed!\n", __FUNCTION__);
-      return -1;
-    }
-#else
-    s->lib = dlopen(decLibPath, RTLD_LAZY);
-    if (!s->lib)
-    {
-      av_log(avctx,AV_LOG_INFO,"%s dlopen %s failed!\n", __FUNCTION__, decLibPath);
-      return -1;
-    }
-#endif
-
-    s->symbols = (Symbols_handle*) av_malloc(sizeof(Symbols_handle));
-    if (!s->symbols)
-    {
-        return -1;
-    }
-    memset(s->symbols, 0, sizeof(Symbols_handle));
-
-    s->symbols->init           =  (rv_backend_init)GetProcAddress(s->lib, codec_init);
-    s->symbols->free           =  (rv_backend_free)GetProcAddress(s->lib, codec_free);
-    s->symbols->transform      =  (rv_backend_transform)GetProcAddress(s->lib, codec_transform);
-    s->symbols->custom_message =  (rv_backend_custom_message)GetProcAddress(s->lib, codec_custom_message);
-    s->symbols->hive_message   =  (rv_backend_hive_message)GetProcAddress(s->lib, codec_hive_message);
-
-    if (!s->symbols->init || !s->symbols->free
-        || !s->symbols->transform || !s->symbols->custom_message
-        || !s->symbols->hive_message)
-    {
-        av_log(avctx,AV_LOG_INFO, "dlsym %s failed!\n", lib_name);
-        av_free(s->symbols);
-        return -1;
-    }
-
     memset(&initParams, 0, sizeof(rv_backend_init_params));
     initParams.usPels = avctx->width;
     initParams.usLines = avctx->height;
@@ -238,10 +91,9 @@ static av_cold int librmvbplus_init(AVCodecContext *avctx)
 
     s->output_buf_size = (avctx->width * avctx->height * 12) >> 3;
 
-    result = s->symbols->init(&initParams, &s->codec_status);
+    result = RV60toYUV420Init(&initParams, &s->codec_status);
     if (HXR_OK != result)
     {
-        av_free(s->symbols);
         return result;
     }
 
@@ -266,7 +118,7 @@ static av_cold int librmvbplus_init(AVCodecContext *avctx)
     msg.message_id = RV_MSG_ID_Smoothing_Postfilter;
     msg.value1 = RV_MSG_DISABLE;
     msg.value2 = 0;
-    result = s->symbols->custom_message(&(msg.message_id), (void*)s->codec_status);
+    result = RV60toYUV420CustomMessage(&(msg.message_id), (void*)s->codec_status);
 
     return 0;
 }
@@ -312,7 +164,7 @@ static int librmvbplus_decode_frame(AVCodecContext *avctx, void *data,
         inParams.flags = RV_DECODE_MORE_FRAMES;
 
 #if WK_USING_FRAME_IN_DECODER
-        ret = s->symbols->transform(NULL, (s->output_buf), &inParams, &outParams, s->codec_status);
+        ret = RV60toYUV420Transform(NULL, (s->output_buf), &inParams, &outParams, s->codec_status);
         yuv_frame = (uint8_t * )((s->output_buf[3]<<24)|(s->output_buf[2]<<16)|(s->output_buf[1]<<8)|(s->output_buf[0]));
         pict->data[0] = yuv_frame+64*(avctx->width+128)+64;
         pict->data[1] = yuv_frame + (avctx->width + 128)*(avctx->height + 128) + 32*(avctx->width + 128) + 32;
@@ -328,9 +180,9 @@ static int librmvbplus_decode_frame(AVCodecContext *avctx, void *data,
         pict->linesize[0] = avctx->width;
         pict->linesize[1] = (avctx->width>>1);
         pict->linesize[2] = (avctx->width>>1);
-        ret = s->symbols->transform(NULL, s->output_buf[s->frame_index], &inParams, &outParams, s->codec_status);
+        ret = RV60toYUV420Transform(NULL, s->output_buf[s->frame_index], &inParams, &outParams, s->codec_status);
 #else
-        ret = s->symbols->transform(NULL, s->output_buf, &inParams, &outParams, s->codec_status);
+        ret = RV60toYUV420Transform(NULL, s->output_buf, &inParams, &outParams, s->codec_status);
 #endif
 #endif
         if (ret != HXR_OK)
@@ -406,7 +258,7 @@ FF_ENABLE_DEPRECATION_WARNINGS
     inParams.flags = 0;
 
 #if WK_USING_FRAME_IN_DECODER
-    ret = s->symbols->transform((UCHAR*)buf, s->output_buf, &inParams, &outParams, s->codec_status);
+    ret = RV60toYUV420Transform((UCHAR*)buf, s->output_buf, &inParams, &outParams, s->codec_status);
     yuv_frame = (uint8_t * )((s->output_buf[3]<<24)|(s->output_buf[2]<<16)|(s->output_buf[1]<<8)|(s->output_buf[0]));
     pict->data[0] = yuv_frame + 64*(avctx->width + 128) + 64;
     pict->data[1] = yuv_frame + (avctx->width + 128) * (avctx->height + 128) + 32*(avctx->width+128) + 32;
@@ -422,10 +274,10 @@ FF_ENABLE_DEPRECATION_WARNINGS
     pict->linesize[0] = avctx->width;
     pict->linesize[1] = (avctx->width>>1);
     pict->linesize[2] = (avctx->width>>1);
-    ret = s->symbols->transform((UCHAR*)buf, s->output_buf[s->frame_index], &inParams, &outParams, s->codec_status);
+    ret = RV60toYUV420Transform((UCHAR*)buf, s->output_buf[s->frame_index], &inParams, &outParams, s->codec_status);
 #else
     av_image_fill_arrays(pict->data, pict->linesize, s->output_buf, AV_PIX_FMT_YUV420P, avctx->width, avctx->height, 1);
-    ret = s->symbols->transform((UCHAR*)buf, s->output_buf, &inParams, &outParams, s->codec_status);
+    ret = RV60toYUV420Transform((UCHAR*)buf, s->output_buf, &inParams, &outParams, s->codec_status);
 #endif
 #endif
     consumed_bytes = avpkt->size;
@@ -492,13 +344,6 @@ static av_cold int librmvbplus_close(AVCodecContext *avctx)
 #if WK_MULTI_FRAME
     int i = 0;
 #endif
-    s->symbols->free(s->codec_status);
-    FreeLibrary(s->lib);
-    if (s->symbols)
-    {
-        av_free(s->symbols);
-        s->symbols = NULL;
-    }
 #if WK_USING_FRAME_IN_DECODER
     av_free(s->output_buf);
 #else
@@ -525,12 +370,8 @@ static av_cold int librmvbplus_close(AVCodecContext *avctx)
 static void librmvbplus_flush(AVCodecContext *avctx)
 {
     LIBRMVBPLUSDecContext* s = (LIBRMVBPLUSDecContext*)avctx->priv_data;
-    if (s->symbols)
-    {
-        ULONG32 id = RV_MSG_ID_Decoder_Start_Sequence;
-        //s->symbols->hive_message(&id);//, s->codec_status);
-        s->symbols->hive_message(&id, s->codec_status);
-    }
+    ULONG32 id = RV_MSG_ID_Decoder_Start_Sequence;
+    RV60toYUV420HiveMessage(&id, s->codec_status);
 }
 
 AVCodec ff_librv11_decoder = {

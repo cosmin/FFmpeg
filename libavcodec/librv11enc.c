@@ -51,92 +51,6 @@
 #define AV_CODEC_DEFAULT_BITRATE 200*1000
 #endif
 
-//encoder dll exports
-typedef HX_RESULT CC (*FPCODECOPEN)(HX_MOFTAG moftFormatTag,HXCODEC *codecRef);
-typedef HX_RESULT CC (*FPCODECCLOSE)(HXCODEC codecRef);
-typedef HX_RESULT CC (*FPCODECGETUINAME)(HXCODEC codecRef,char *nameBuf);
-typedef HX_RESULT CC (*FPCODECGETVERSION)(HXCODEC codecRef, ULONG32 *pVersion);
-typedef HX_RESULT CC (*FPCODECOPENSETTINGSBOX)(HXCODEC codecRef, void * platformData);
-typedef HX_RESULT CC (*FPCODECQUERYMEDIAFORMAT)(HXCODEC codecRef,HX_MOF * pmofIn,HX_MOF* pmofOut, UINT16 ioDirection);
-typedef HX_RESULT CC (*FPCODECPREFERREDMEDIAFORMAT)(HXCODEC codecRef,HX_MOF * pmofIn,
-        HX_MOF * pmofOut, UINT16 ioDirection);
-typedef HX_RESULT CC (*FPCODECGETMEDIAFORMATS)(HXCODEC codecRef,HX_MOF **pFormats,
-        ULONG32 * numFormats,UINT16 oDirection);
-typedef HX_RESULT CC (*FPCODECSTREAMOPEN)(HXCODEC codecRef,HXSTREAM *streamRef,HXCODEC_INIT
-                                       *params);
-typedef HX_RESULT CC (*FPCODECGETHYPERPROPERTY)(HXCODEC codecRef, UINT8 *pScaleValue);
-typedef HX_RESULT CC (*FPSTREAMCLOSE)(HXSTREAM streamRef);
-typedef HX_RESULT CC (*FP_STREAM_DATA)(HXSTREAM streamRef,HXSTREAM fromStreamRef,HXCODEC_DATA*pData);
-typedef HX_RESULT CC (*FPSTREAMSETDATACALLBACK)(HXSTREAM streamRef,HXSTREAM callbackRef, HXMEMORY memoryRef, FP_STREAM_DATA data_callback);
-typedef HX_RESULT CC (*FPSTREAMGETSTREAMHEADERSIZE)(HXSTREAM streamRef, ULONG32 *puSize);
-typedef HX_RESULT CC (*FPSTREAMGETSTREAMHEADER)(HXSTREAM streamRef, HX_MOF *pHeader);
-typedef HX_RESULT CC (*FPSTREAMINPUT)(HXSTREAM streamRef,HXSTREAM      fromStreamRef,
-                                   HXCODEC_DATA *pData);
-typedef HX_RESULT CC (*FPSTREAMSETOUTPUTPACKETSIZE)(HXSTREAM streamRef,ULONG32 prefSize,
-        ULONG32 maxSize,ULONG32 *actualSize);
-typedef HX_RESULT CC (*FPSTREAMGETINPUTBUFFERSIZE)(HXSTREAM streamRef,ULONG32 *puSize);
-
-typedef HX_RESULT CC (*FPSTREAMGETPROPERTY)(HXSTREAM streamRef,ULONG32 prop, void *pValue);
-typedef HX_RESULT CC (*FPSTREAMSETPROPERTY)(HXSTREAM streamRef,ULONG32 prop, void *pValue);
-
-// XXXKB: This needs to be modified to support the postfilter ROI:
-typedef HX_RESULT CC (*FPSTREAMPOSTPROCESS)(HXSTREAM streamRef,HXCODEC_DATA *pncData, ULONG32 uCurrentTime,UCHAR *pDestBuffer,UINT32 uDestPitch,INT32 cidDestColorFormat);
-typedef HX_RESULT CC (*FPSTREAMRELEASEFRAME)(HXSTREAM streamRef,HXCODEC_DATA   *pncData);
-
-typedef PIHXUnknown CC (*FPGETHXUNKNOWN)(HXSTREAM streamRef);
-typedef PIHXUnknown CC (*FPCODECGETHXUNKNOWN)(HXCODEC codecRef);
-
-typedef HX_RESULT CC (*FPCODECINPUT) (HXCODEC codecRef, HXCODEC_DATA *pData);
-
-typedef HX_RESULT CC(*FPCODECSETPROPERTY)(HXCODEC codecRef,ULONG32 prop, void *pValue);
-
-static const char* codec_open = "PNCodec_Open";
-static const char* codec_close = "PNCodec_Close";
-static const char* codec_input = "PNCodec_Input";
-static const char* stream_open = "PNCodec_StreamOpen";
-static const char* codec_get_hyper_property = "PNCodec_GetHyperProperty";
-static const char* stream_close= "PNStream_Close";
-static const char* stream_set_datacallback= "PNStream_SetDataCallback";
-static const char* stream_get_streamheadersize= "PNStream_GetStreamHeaderSize";
-static const char* stream_get_streamheader= "PNStream_GetStreamHeader";
-static const char* stream_input = "PNStream_Input";
-static const char* stream_set_outputpacketsize= "PNStream_SetOutputPacketSize";
-static const char* stream_get_inputbuffersize= "PNStream_GetInputBufferSize";
-static const char* stream_get_property= "PNStream_GetProperty";
-static const char* stream_set_property= "PNStream_SetProperty";
-//static const char* stream_postprocess= "PNStream_PostProcess";
-static const char* stream_get_ipnunknown= "PNStream_GetIPNUnKnown";
-static const char* codec_get_uiname = "PNCodec_GetUIName";
-static const char* codec_get_ipnunknown = "PNCodec _GetIPNUnknown";
-static const char* codec_query_mediaformat = "PNCodec_QueryMediaFormat";
-static const char* codec_set_property = "PNCodec_SetCodecProperty";
-
-typedef struct rmhd_encoder_symbols_handle
-{
-    FPCODECOPEN                 fpHXCodec_Open;
-    FPCODECCLOSE                fpHXCodec_Close;
-    FPCODECINPUT                fpHXCodec_Input;
-    FPCODECSTREAMOPEN           fpHXCodec_StreamOpen;
-    FPCODECGETHYPERPROPERTY     fpHXCodec_GetHyperProperty;
-    FPSTREAMCLOSE               fpHXStream_Close;
-    FPSTREAMSETDATACALLBACK     fpHXStream_SetDataCallback;
-    FPSTREAMGETSTREAMHEADERSIZE fpHXStream_GetStreamHeaderSize;
-    FPSTREAMGETSTREAMHEADER     fpHXStream_GetStreamHeader;
-    FPSTREAMINPUT               fpHXStream_Input;
-    FPSTREAMSETOUTPUTPACKETSIZE fpHXStream_SetOutputPacketSize;
-    FPSTREAMGETINPUTBUFFERSIZE  fpHXStream_GetInputBufferSize;
-    FPSTREAMGETPROPERTY         fpHXStream_GetProperty;
-    FPSTREAMSETPROPERTY         fpHXStream_SetProperty;
-    FPSTREAMPOSTPROCESS         fpHXStream_PostProcess;
-    FPSTREAMRELEASEFRAME        fpHXStream_ReleaseFrame;
-    FPGETHXUNKNOWN              fpHXStream_GetIHXUnknown;
-    FPCODECGETUINAME            fpHXCodec_GetUIName;
-    FPCODECGETHXUNKNOWN         fpHXCodec_GetIHXUnknown;
-    FPCODECQUERYMEDIAFORMAT     fpHXCodec_QueryMediaFormat;
-    FPCODECSETPROPERTY          fpHXCodec_SetProperty;
-
-} Symbols_handle;
-
 #define AV_PKT_FLAG_STREM_END 0x0080
 typedef struct CodedFrameList{
     AVPacket pkt;
@@ -155,13 +69,6 @@ typedef struct FrameRatioConverter{
 typedef struct LIBRMHDEncContext_struct
 {
     AVClass *class;
-
-#ifdef _WIN32
-    HINSTANCE lib_handle;
-#else
-    void *lib_handle;
-#endif
-    Symbols_handle *symbols;
     HXCODEC  hCodecRef;
     HXSTREAM hStreamRef;
     RVENCODE_PARAM rvenc_param;
@@ -508,15 +415,7 @@ static av_cold int librmhdenc_init(AVCodecContext *avctx)
 {
     LIBRMHDEncContext *enctx = (LIBRMHDEncContext*)avctx->priv_data;
     HX_RESULT res = HXR_OK;
-#ifndef _WIN32
-    char strLibDir[512];
-    char strLibPath[512];
-    char encLibPath[512];
-    int i = 0;
-    int cnt = 0;
-#else
     ULONG32 cpu_low;
-#endif
     HX_MOF hxInput,hxOutput;
     HX_FORMAT_VIDEO  mofin;
     HX_FORMAT_VIDEO  mofout;
@@ -550,132 +449,20 @@ static av_cold int librmhdenc_init(AVCodecContext *avctx)
         avctx->height = (avctx->height& (~3) );
     }
 
-#ifndef _WIN32
-    //load drvc RV60 codec library
-    memset(strLibDir,0,sizeof(strLibDir));
-    memset(strLibPath,0,sizeof(strLibPath));
-    memset(encLibPath,0,sizeof(encLibPath));
-    cnt = readlink("/proc/self/exe",strLibPath, sizeof(strLibPath)-1);
-    if(cnt <0 ||cnt >= sizeof(strLibPath)-1)
-    {
-        av_log(avctx,AV_LOG_ERROR,"Error,failed to get program path!\n");
-        return -1;
-    }
-
-    for(i=cnt; i>=0; i--)
-    {
-        if(strLibPath[i]=='/')
-        {
-            strLibPath[i] = '\0';
-            break;
-        }
-    }
-
-    strcpy(strLibDir,strLibPath);
-    sprintf(encLibPath,"%s/%s",strLibPath,lib_name);
-#endif
-
-    enctx->symbols = (Symbols_handle*)av_malloc(sizeof(Symbols_handle));
-    if(!enctx->symbols)
-    {
-        av_log(avctx,AV_LOG_ERROR,"Error,malloc memory for Symbols_handle!\n");
-        return -1;
-    }
-    memset(enctx->symbols, 0, sizeof(Symbols_handle));
-
-#ifdef _WIN32
-    enctx->lib_handle = LoadLibrary("librv11enc.dll");
-    if(NULL == enctx->lib_handle)
-    {
-        av_log(avctx,AV_LOG_ERROR,"Error,failed to load rv11enc library!\n");
-        av_free(enctx->symbols);
-        return -1;
-    }
-
-    enctx->symbols->fpHXCodec_Open = (FPCODECOPEN)GetProcAddress(enctx->lib_handle,codec_open);
-    enctx->symbols->fpHXCodec_Close = (FPCODECCLOSE)GetProcAddress(enctx->lib_handle,codec_close);
-    enctx->symbols->fpHXCodec_StreamOpen = (FPCODECSTREAMOPEN)GetProcAddress(enctx->lib_handle,stream_open);
-    enctx->symbols->fpHXCodec_GetHyperProperty = (FPCODECGETHYPERPROPERTY)GetProcAddress(enctx->lib_handle,codec_get_hyper_property);
-    enctx->symbols->fpHXStream_Close = (FPSTREAMCLOSE)GetProcAddress(enctx->lib_handle,stream_close);
-    enctx->symbols->fpHXStream_SetDataCallback = (FPSTREAMSETDATACALLBACK)GetProcAddress(enctx->lib_handle, stream_set_datacallback);
-    enctx->symbols->fpHXStream_GetStreamHeaderSize= (FPSTREAMGETSTREAMHEADERSIZE)GetProcAddress(enctx->lib_handle,stream_get_streamheadersize);
-    enctx->symbols->fpHXStream_GetStreamHeader = (FPSTREAMGETSTREAMHEADER)GetProcAddress(enctx->lib_handle, stream_get_streamheader);
-    enctx->symbols->fpHXStream_Input = (FPSTREAMINPUT)GetProcAddress(enctx->lib_handle, stream_input);
-    enctx->symbols->fpHXStream_SetOutputPacketSize = (FPSTREAMSETOUTPUTPACKETSIZE)GetProcAddress(enctx->lib_handle, stream_set_outputpacketsize);
-    enctx->symbols->fpHXStream_GetInputBufferSize = (FPSTREAMGETINPUTBUFFERSIZE)GetProcAddress(enctx->lib_handle, stream_get_inputbuffersize);
-    enctx->symbols->fpHXStream_GetProperty = (FPSTREAMGETPROPERTY)GetProcAddress(enctx->lib_handle, stream_get_property);
-    enctx->symbols->fpHXStream_SetProperty = (FPSTREAMSETPROPERTY)GetProcAddress(enctx->lib_handle, stream_set_property);
-    enctx->symbols->fpHXStream_GetIHXUnknown = (FPGETHXUNKNOWN)GetProcAddress(enctx->lib_handle, stream_get_ipnunknown);
-    enctx->symbols->fpHXCodec_GetUIName = (FPCODECGETUINAME)GetProcAddress(enctx->lib_handle, codec_get_uiname);
-    //enctx->symbols->fpHXStream_PostProcess = (FPSTREAMPOSTPROCESS)GetProcAddress(enctx->lib_handle, stream_postprocess);
-    //enctx->symbols->fpHXStream_ReleaseFrame = (FPSTREAMRELEASEFRAME)GetProcAddress(enctx->lib_handle, stream_releaseframe);
-    enctx->symbols->fpHXCodec_Input = (FPCODECINPUT)GetProcAddress(enctx->lib_handle, codec_input);
-    enctx->symbols->fpHXCodec_GetIHXUnknown = (FPCODECGETHXUNKNOWN)GetProcAddress(enctx->lib_handle, codec_get_ipnunknown);
-    enctx->symbols->fpHXCodec_QueryMediaFormat = (FPCODECQUERYMEDIAFORMAT)GetProcAddress(enctx->lib_handle, codec_query_mediaformat);
-    enctx->symbols->fpHXCodec_SetProperty = (FPCODECSETPROPERTY)GetProcAddress(enctx->lib_handle, codec_set_property);
-#else
-    enctx->lib_handle = dlopen(encLibPath, RTLD_LAZY);
-    if(!enctx->lib_handle)
-    {
-        av_log(avctx,AV_LOG_ERROR,"Error,failed to dlopen %s library!\n",encLibPath);
-        return -1;
-    }
-
-    enctx->symbols->fpHXCodec_Open = dlsym(enctx->lib_handle,codec_open);
-    enctx->symbols->fpHXCodec_Close = dlsym(enctx->lib_handle,codec_close);
-    enctx->symbols->fpHXCodec_StreamOpen = dlsym(enctx->lib_handle,stream_open);
-    enctx->symbols->fpHXCodec_GetHyperProperty = dlsym(enctx->lib_handle,codec_get_hyper_property);
-    enctx->symbols->fpHXStream_Close = dlsym(enctx->lib_handle,stream_close);
-    enctx->symbols->fpHXStream_SetDataCallback = dlsym(enctx->lib_handle, stream_set_datacallback);
-    enctx->symbols->fpHXStream_GetStreamHeaderSize= dlsym(enctx->lib_handle,stream_get_streamheadersize);
-    enctx->symbols->fpHXStream_GetStreamHeader = dlsym(enctx->lib_handle, stream_get_streamheader);
-    enctx->symbols->fpHXStream_Input = dlsym(enctx->lib_handle, stream_input);
-    enctx->symbols->fpHXStream_SetOutputPacketSize = dlsym(enctx->lib_handle, stream_set_outputpacketsize);
-    enctx->symbols->fpHXStream_GetInputBufferSize = dlsym(enctx->lib_handle, stream_get_inputbuffersize);
-    enctx->symbols->fpHXStream_GetProperty = dlsym(enctx->lib_handle, stream_get_property);
-    enctx->symbols->fpHXStream_SetProperty = dlsym(enctx->lib_handle, stream_set_property);
-    enctx->symbols->fpHXStream_GetIHXUnknown = dlsym(enctx->lib_handle, stream_get_ipnunknown);
-    enctx->symbols->fpHXCodec_GetUIName = dlsym(enctx->lib_handle, codec_get_uiname);
-    //enctx->symbols->fpHXStream_PostProcess = dlsym(enctx->lib_handle, stream_postprocess);
-    //enctx->symbols->fpHXStream_ReleaseFrame = dlsym(enctx->lib_handle, stream_releaseframe);
-    enctx->symbols->fpHXCodec_Input = dlsym(enctx->lib_handle, codec_input);
-    enctx->symbols->fpHXCodec_GetIHXUnknown = dlsym(enctx->lib_handle, codec_get_ipnunknown);
-    enctx->symbols->fpHXCodec_QueryMediaFormat = dlsym(enctx->lib_handle, codec_query_mediaformat);
-    enctx->symbols->fpHXCodec_SetProperty = dlsym(enctx->lib_handle, codec_set_property);
-#endif
-
-    if(!enctx->symbols->fpHXCodec_Open || !enctx->symbols->fpHXCodec_Close
-        || !enctx->symbols->fpHXCodec_StreamOpen || !enctx->symbols->fpHXStream_Close
-        ||/* !enctx->symbols->fpHXStream_GetStreamHeaderSize ||*/ !enctx->symbols->fpHXStream_GetStreamHeader
-        /*|| !enctx->symbols->fpHXStream_SetOutputPacketSize || !enctx->symbols->fpHXStream_GetInputBufferSize*/
-        || !enctx->symbols->fpHXStream_SetDataCallback || !enctx->symbols->fpHXStream_Input
-        /*|| !enctx->symbols->fpHXStream_GetIHXUnknown*/ || !enctx->symbols->fpHXCodec_GetUIName ||
-        !enctx->symbols->fpHXCodec_SetProperty)
-    {
-        av_log(avctx, AV_LOG_ERROR,"%s get symbols failed\n", __FUNCTION__ );
-        av_free(enctx->symbols);
-        return -1;
-    }
-
-    res = enctx->symbols->fpHXCodec_QueryMediaFormat(NULL,&hxInput,&hxOutput,0);
+    res = PNCodec_QueryMediaFormat(NULL,&hxInput,&hxOutput,0);
     if(FAILED(res))
     {
         av_log(avctx,AV_LOG_ERROR,"Error,failed to querymediaformat before PNCodec_Open!\n");
         return HXR_FAIL;
     }
 
-    res = enctx->symbols->fpHXCodec_Open(hxOutput.submoftag,&enctx->hCodecRef);
+    res = PNCodec_Open(hxOutput.submoftag,&enctx->hCodecRef);
     if(FAILED(res))
     {
         av_log(avctx,AV_LOG_ERROR,"Error,failed to PNCodec_Open!\n");
         return HXR_FAIL;
     }
-#ifdef _WIN32
-    // This function should be called before fpHXCodec_StreamOpen
-    cpu_low = enctx->rvenc_param.ulCPULow;
-    av_log(avctx,AV_LOG_DEBUG,"SP_CODEC_CPU_LOW : %d\n", cpu_low);
-    res = enctx->symbols->fpHXCodec_SetProperty(enctx->hCodecRef, SP_CODEC_CPU_LOW, &cpu_low);
-#endif
+
     if(SUCCEEDED(res))
     {
         enctx->ulcodec4cc = hxOutput.submoftag;
@@ -832,7 +619,7 @@ static av_cold int librmhdenc_init(AVCodecContext *avctx)
         ci.pOutMof= (HX_MOF*)&mofout;
         ci.memoryRef = NULL;
 
-        res = enctx->symbols->fpHXCodec_SetProperty(enctx->hCodecRef,CP_ENC_SUGGEST_NUMBER_OF_THREAD,&enctx->rvenc_param.ulMaxThreads);
+        res = PNCodec_SetProperty(enctx->hCodecRef,CP_ENC_SUGGEST_NUMBER_OF_THREAD,&enctx->rvenc_param.ulMaxThreads);
         if(FAILED(res))
         {
           av_log(avctx,AV_LOG_ERROR,"Error,failed to PNCodec_SetProperty CP_ENC_SUGGEST_NUMBER_OF_THREAD!\n");
@@ -840,9 +627,9 @@ static av_cold int librmhdenc_init(AVCodecContext *avctx)
         }
 
         if(enctx->rvenc_param.isGPUAccelerate==1)
-          res = enctx->symbols->fpHXCodec_SetProperty(enctx->hCodecRef,CP_ENC_ENABLE_GPU_ACCELEARATION,NULL);
+          res = PNCodec_SetProperty(enctx->hCodecRef,CP_ENC_ENABLE_GPU_ACCELEARATION,NULL);
         else
-          res = enctx->symbols->fpHXCodec_SetProperty(enctx->hCodecRef,CP_ENC_DISABLE_GPU_ACCELEARATION,NULL);
+          res = PNCodec_SetProperty(enctx->hCodecRef,CP_ENC_DISABLE_GPU_ACCELEARATION,NULL);
 
         if(FAILED(res))
         {
@@ -850,7 +637,7 @@ static av_cold int librmhdenc_init(AVCodecContext *avctx)
           return HXR_FAIL;
         }
 
-        res = enctx->symbols->fpHXCodec_StreamOpen(enctx->hCodecRef,&enctx->hStreamRef,&ci);
+        res = PNCodec_StreamOpen(enctx->hCodecRef,&enctx->hStreamRef,&ci);
         if(FAILED(res))
         {
             av_log(avctx,AV_LOG_ERROR,"Error,failed to PNCodec_StreamOpen!\n");
@@ -859,7 +646,7 @@ static av_cold int librmhdenc_init(AVCodecContext *avctx)
 
         if(enctx->bVbrBitrate&&!(avctx->flags&AV_CODEC_FLAG_PASS1))
         {
-            res = enctx->symbols->fpHXStream_SetProperty(enctx->hStreamRef,SP_BITRATE,&enctx->rvenc_param.ulAvgBitrate);
+            res = PNStream_SetProperty(enctx->hStreamRef,SP_BITRATE,&enctx->rvenc_param.ulAvgBitrate);
             if(FAILED(res))
             {
                 av_log(avctx,AV_LOG_ERROR,"Error,failed to PNStream_SetProperty SP_BITRATE!\n");
@@ -868,7 +655,7 @@ static av_cold int librmhdenc_init(AVCodecContext *avctx)
         }
         else
         {
-            res = enctx->symbols->fpHXStream_SetProperty(enctx->hStreamRef,SP_QUALITY,&enctx->rvenc_param.ulVbrQuality);
+            res = PNStream_SetProperty(enctx->hStreamRef,SP_QUALITY,&enctx->rvenc_param.ulVbrQuality);
             if(FAILED(res))
             {
                 av_log(avctx,AV_LOG_ERROR,"Error,failed to PNStream_SetProperty SP_QUALITY!\n");
@@ -878,7 +665,7 @@ static av_cold int librmhdenc_init(AVCodecContext *avctx)
 
         if(SUCCEEDED(res))
         {
-            res = enctx->symbols->fpHXStream_SetProperty(enctx->hStreamRef,SP_MAXBITRATE,&enctx->rvenc_param.ulMaxBitrate);
+            res = PNStream_SetProperty(enctx->hStreamRef,SP_MAXBITRATE,&enctx->rvenc_param.ulMaxBitrate);
             if(FAILED(res))
             {
                 av_log(avctx,AV_LOG_ERROR,"Error,failed to PNStream_SetProperty SP_MAXBITRATE!\n");
@@ -886,14 +673,14 @@ static av_cold int librmhdenc_init(AVCodecContext *avctx)
             }
 
             fMaxFramerate = enctx->rvenc_param.ulMaxFramerate;
-            res = enctx->symbols->fpHXStream_SetProperty(enctx->hStreamRef,SP_MAX_FRAMERATE,&fMaxFramerate);
+            res = PNStream_SetProperty(enctx->hStreamRef,SP_MAX_FRAMERATE,&fMaxFramerate);
             if(FAILED(res))
             {
                 av_log(avctx,AV_LOG_ERROR,"Error,failed to PNStream_SetProperty SP_MAX_FRAMERATE!\n");
                 return HXR_FAIL;
             }
 
-            res = enctx->symbols->fpHXStream_SetProperty(enctx->hStreamRef,SP_CHECK_FRAME_SKIP,&ulCheckFrameSkip);
+            res = PNStream_SetProperty(enctx->hStreamRef,SP_CHECK_FRAME_SKIP,&ulCheckFrameSkip);
             if(FAILED(res))
             {
                 av_log(avctx,AV_LOG_ERROR,"Error,failed to PNStream_SetProperty SP_CHECK_FRAME_SKIP!\n");
@@ -906,14 +693,14 @@ static av_cold int librmhdenc_init(AVCodecContext *avctx)
             }else if(!strcasecmp(enctx->video_mode, ksz_encoding_framerate_mode_sharp)){
                 ulImageQuality = 1;
             }
-            res = enctx->symbols->fpHXStream_SetProperty(enctx->hStreamRef,SP_QUALITY_MOTION,&ulImageQuality);
+            res = PNStream_SetProperty(enctx->hStreamRef,SP_QUALITY_MOTION,&ulImageQuality);
             if(FAILED(res))
             {
                 av_log(avctx,AV_LOG_ERROR,"Error,failed to PNStream_SetProperty SP_QUALITY_MOTION!\n");
                 return HXR_FAIL;
             }
 
-            res = enctx->symbols->fpHXStream_SetProperty(enctx->hStreamRef,SP_LIVE,&isLive);
+            res = PNStream_SetProperty(enctx->hStreamRef,SP_LIVE,&isLive);
 
             if(FAILED(res))
             {
@@ -924,20 +711,20 @@ static av_cold int librmhdenc_init(AVCodecContext *avctx)
             if(SUCCEEDED(res))
             {
                 uint32_t ulMaxKeyFrameInterval = enctx->rvenc_param.ulMaxKeyFrameInterval*1000;
-                res = enctx->symbols->fpHXStream_SetProperty(enctx->hStreamRef,SP_KEYFRAMERATE,&ulMaxKeyFrameInterval);
+                res = PNStream_SetProperty(enctx->hStreamRef,SP_KEYFRAMERATE,&ulMaxKeyFrameInterval);
             }
 
             if(SUCCEEDED(res))
             {
                 uint32_t parm = enctx->rvenc_param.isLossProtect==TRUE ? 1 : 0;
-                res = enctx->symbols->fpHXStream_SetProperty(enctx->hStreamRef,SP_ECC,&parm);
+                res = PNStream_SetProperty(enctx->hStreamRef,SP_ECC,&parm);
                 if(FAILED(res))
                 {
                     av_log(avctx,AV_LOG_ERROR,"Error,failed to PNStream_SetProperty SP_ECC!\n");
                     return HXR_FAIL;
                 }
 
-                res = enctx->symbols->fpHXStream_SetProperty(enctx->hStreamRef,SP_SET_FAST_LEVEL,&enctx->rvenc_param.ulEncComplevel);
+                res = PNStream_SetProperty(enctx->hStreamRef,SP_SET_FAST_LEVEL,&enctx->rvenc_param.ulEncComplevel);
                 if(FAILED(res))
                 {
                     av_log(avctx,AV_LOG_ERROR,"Error,failed to PNStream_SetProperty SP_SET_FAST_LEVEL!\n");
@@ -949,7 +736,7 @@ static av_cold int librmhdenc_init(AVCodecContext *avctx)
             {
                 //max setup latency 60, min startup latency 0.5, normal latency 4, medium latency 2, cbr low latency 1, vbr low latency 0.5.
                 uint32_t ulVBRMaxLatencyInMillsec = (uint32_t)enctx->rvenc_param.lfMaxStartLatency*1000;
-                res = enctx->symbols->fpHXStream_SetProperty(enctx->hStreamRef,SP_TARGET_LATENCY,&ulVBRMaxLatencyInMillsec);
+                res = PNStream_SetProperty(enctx->hStreamRef,SP_TARGET_LATENCY,&ulVBRMaxLatencyInMillsec);
                 if(FAILED(res))
                 {
                     av_log(avctx,AV_LOG_ERROR,"Error,failed to PNStream_SetProperty SP_TARGET_LATENCY!\n");
@@ -959,7 +746,7 @@ static av_cold int librmhdenc_init(AVCodecContext *avctx)
 
             if(SUCCEEDED(res))
             {
-                res = enctx->symbols->fpHXStream_SetProperty(enctx->hStreamRef,SP_RESIZING_ACCURACY,&enctx->rvenc_param.ulResizeQuality);
+                res = PNStream_SetProperty(enctx->hStreamRef,SP_RESIZING_ACCURACY,&enctx->rvenc_param.ulResizeQuality);
                 if(FAILED(res))
                 {
                     av_log(avctx,AV_LOG_ERROR,"Error,failed to PNStream_SetProperty SP_RESIZE_ACCURACY!\n");
@@ -974,10 +761,10 @@ static av_cold int librmhdenc_init(AVCodecContext *avctx)
                     ulPon = enctx->rvenc_param.ulPon;
                 }
 
-                res = enctx->symbols->fpHXStream_SetProperty(enctx->hStreamRef,SP_SET_PON_START,&ulPon);
+                res = PNStream_SetProperty(enctx->hStreamRef,SP_SET_PON_START,&ulPon);
             }
 
-            res = enctx->symbols->fpHXStream_SetDataCallback(enctx->hStreamRef,avctx,NULL,librmhdenc_data_callback);
+            res = PNStream_SetDataCallback(enctx->hStreamRef,avctx,NULL,librmhdenc_data_callback);
 
             if(FAILED(res))
             {
@@ -994,7 +781,7 @@ static av_cold int librmhdenc_init(AVCodecContext *avctx)
                 ulCodingMode = SPCODINGMODE_FROMFILE;
             }
 
-            res = enctx->symbols->fpHXStream_SetProperty(enctx->hStreamRef,SP_CODING_MODE,&ulCodingMode);
+            res = PNStream_SetProperty(enctx->hStreamRef,SP_CODING_MODE,&ulCodingMode);
             if(FAILED(res))
             {
                 av_log(avctx,AV_LOG_ERROR,"Error,failed to PNStream_SetProperty first SP_CODING_MODE!\n");
@@ -1023,7 +810,7 @@ static av_cold int librmhdenc_init(AVCodecContext *avctx)
                 parm = 0;
             }
 
-            res = enctx->symbols->fpHXStream_SetProperty(enctx->hStreamRef,SP_RATECONTROL_PLUS,&parm);
+            res = PNStream_SetProperty(enctx->hStreamRef,SP_RATECONTROL_PLUS,&parm);
             if(FAILED(res))
             {
                 av_log(avctx,AV_LOG_ERROR,"Error,failed to PNStream_SetProperty SP_RATECONTROL_PLUS!\n");
@@ -1048,7 +835,7 @@ static av_cold int librmhdenc_init(AVCodecContext *avctx)
             }
 
 
-            res = enctx->symbols->fpHXStream_SetProperty(enctx->hStreamRef,SP_ANALYSIS_FILENAME,(void*)szPasslogfile);
+            res = PNStream_SetProperty(enctx->hStreamRef,SP_ANALYSIS_FILENAME,(void*)szPasslogfile);
             if(FAILED(res))
             {
                 av_log(avctx,AV_LOG_ERROR,"Error,failed to PNStream_SetProperty SP_ANALYSIS_FILENAME!\n");
@@ -1058,7 +845,7 @@ static av_cold int librmhdenc_init(AVCodecContext *avctx)
 
         if(SUCCEEDED(res))
         {
-            res = enctx->symbols->fpHXStream_SetProperty(enctx->hStreamRef,SP_CODEC_SETUP_DONE,&bDone);
+            res = PNStream_SetProperty(enctx->hStreamRef,SP_CODEC_SETUP_DONE,&bDone);
             if(FAILED(res))
             {
                 av_log(avctx,AV_LOG_ERROR,"%s failed to setup rv11 video codec!\n",__FUNCTION__);
@@ -1066,7 +853,7 @@ static av_cold int librmhdenc_init(AVCodecContext *avctx)
             }
 
             ulTargetPacketSize = enctx->rvenc_param.ulMaxPacketSize;
-            res = enctx->symbols->fpHXStream_SetOutputPacketSize(enctx->hStreamRef,ulTargetPacketSize,ulTargetPacketSize,&ulTargetPacketSize);
+            res = PNStream_SetOutputPacketSize(enctx->hStreamRef,ulTargetPacketSize,ulTargetPacketSize,&ulTargetPacketSize);
         }
 
         enctx->tEncodeRolloverBase = 0;
@@ -1108,7 +895,7 @@ FF_ENABLE_DEPRECATION_WARNINGS
         *q++ = 0x00;
         *q++ = 0x00;
         *q++ = 0x00;
-        enctx->symbols->fpHXCodec_GetHyperProperty(enctx->hCodecRef, q);
+        PNCodec_GetHyperProperty(enctx->hCodecRef, q);
     }
 
     return 0;
@@ -1152,7 +939,7 @@ static int librmhdenc_encode(AVCodecContext *avctx, AVPacket*pkt, const AVFrame*
 
             bForceKeyFrame = frame->pict_type==AV_PICTURE_TYPE_I ? TRUE : FALSE;
 
-          if(enctx->symbols->fpHXCodec_Input !=NULL)
+          if(PNCodec_Input !=NULL)
             {
                 cd.data = enctx->inFrameBuff;
                 cd.dataLength = enctx->inFrameSize;
@@ -1163,7 +950,7 @@ static int librmhdenc_encode(AVCodecContext *avctx, AVPacket*pkt, const AVFrame*
                 cd.Segments[0].bIsValid = TRUE;
                 cd.Segments[0].ulSegmentOffset = 0;
 
-                res = enctx->symbols->fpHXCodec_Input(enctx->hCodecRef,&cd);
+                res = PNCodec_Input(enctx->hCodecRef,&cd);
 
                 if(res != HXR_OK)
                 {
@@ -1182,7 +969,7 @@ static int librmhdenc_encode(AVCodecContext *avctx, AVPacket*pkt, const AVFrame*
 
         enctx->bAtEndOfStream = TRUE;
         // stream is end
-        if(enctx->symbols->fpHXCodec_Input !=NULL)
+        if(PNCodec_Input !=NULL)
         {
             cd.data = NULL;
             cd.dataLength = 0;
@@ -1193,7 +980,7 @@ static int librmhdenc_encode(AVCodecContext *avctx, AVPacket*pkt, const AVFrame*
             cd.Segments[0].bIsValid = TRUE;
             cd.Segments[0].ulSegmentOffset = 0;
 
-            res = enctx->symbols->fpHXCodec_Input(enctx->hCodecRef,&cd);
+            res = PNCodec_Input(enctx->hCodecRef,&cd);
 
             if(res != HXR_OK)
             {
@@ -1247,34 +1034,22 @@ FF_ENABLE_DEPRECATION_WARNINGS
 static av_cold int librmhdenc_close(AVCodecContext *avctx)
 {
     LIBRMHDEncContext* enctx = avctx->priv_data;
-    if(enctx->symbols->fpHXStream_Close)
+    if(PNStream_Close)
     {
-        enctx->symbols->fpHXStream_Close(enctx->hStreamRef);
+        PNStream_Close(enctx->hStreamRef);
         enctx->hStreamRef = NULL;
     }
 
-    if(enctx->symbols->fpHXCodec_Close)
+    if(PNCodec_Close)
     {
-        enctx->symbols->fpHXCodec_Close(enctx->hCodecRef);
+        PNCodec_Close(enctx->hCodecRef);
         enctx->hCodecRef = NULL;
     }
-
-#ifdef _WIN32
-    FreeLibrary(enctx->lib_handle);
-#else
-    dlclose(enctx->lib_handle);
-#endif
 
     if(enctx->inFrameBuff)
     {
         av_free(enctx->inFrameBuff);
         enctx->inFrameBuff = NULL;
-    }
-
-    if(enctx->symbols)
-    {
-        av_free(enctx->symbols);
-        enctx->symbols = NULL;
     }
 
     if(enctx->coded_frame_list)
