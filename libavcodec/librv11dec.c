@@ -293,4 +293,5 @@ AVCodec ff_librv11_decoder = {
     .close          = librv11dec_close,
     .flush          = librv11dec_flush,
     .capabilities   = AV_CODEC_CAP_DELAY,
+    .wrapper_name   = "librv11",
 };

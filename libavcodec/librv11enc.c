@@ -646,4 +646,5 @@ AVCodec ff_librv11_encoder = {
         AV_PIX_FMT_NONE
     },
     .priv_class     = &librv11_class,
+    .wrapper_name   = "librv11",
 };
