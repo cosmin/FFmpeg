@@ -1557,6 +1557,7 @@ static unsigned int mov_get_codec_tag(AVFormatContext *s, MOVTrack *track)
                   track->par->codec_id == AV_CODEC_ID_RAWVIDEO ||
                   track->par->codec_id == AV_CODEC_ID_H263 ||
                   track->par->codec_id == AV_CODEC_ID_H264 ||
+                  track->par->codec_id == AV_CODEC_ID_RV60 ||
                   track->par->codec_id == AV_CODEC_ID_DNXHD ||
                   track->par->codec_id == AV_CODEC_ID_MPEG2VIDEO ||
                   av_get_bits_per_sample(track->par->codec_id)))) { // pcm audio
