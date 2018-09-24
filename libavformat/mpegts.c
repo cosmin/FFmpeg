@@ -31,14 +31,13 @@
 #include "libavcodec/bytestream.h"
 #include "libavcodec/get_bits.h"
 #include "libavcodec/opus.h"
-#include "libavcodec/librv11util.h"
+#include "libavcodec/librv11.h"
 #include "avformat.h"
 #include "mpegts.h"
 #include "internal.h"
 #include "avio_internal.h"
 #include "mpeg.h"
 #include "isom.h"
-#include "rm.h"
 
 /* maximum size in which we look for synchronization if
  * synchronization is lost */

@@ -32,12 +32,11 @@
 #include "libavutil/mathematics.h"
 #include "libavcodec/bytestream.h"
 #include "libavcodec/mpeg4audio.h"
-#include "libavcodec/librv11util.h"
+#include "libavcodec/librv11.h"
 #include "avformat.h"
 #include "internal.h"
 #include "avio_internal.h"
 #include "flv.h"
-#include "rm.h"
 
 #define VALIDATE_INDEX_TS_THRESH 2500
 

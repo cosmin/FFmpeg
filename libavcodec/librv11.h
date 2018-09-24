@@ -45,5 +45,42 @@
 #define LIBRV11DEC_FILE XSTR(RV_DEC_LIB_FILE)
 #define LIBRV11ENC_FILE XSTR(RV_ENC_LIB_FILE)
 
+#ifndef MAX_PACKET_SIZE
+#define MAX_PACKET_SIZE 15000
+#endif
+
+
+static inline int  get_segments_number(uint32_t data_length )
+{
+    //to rv11 numSegments should be 1
+    int num_packet = 0;
+    if(data_length<1){
+        return -1;
+    }
+
+    num_packet = data_length/MAX_PACKET_SIZE;
+    if(data_length%MAX_PACKET_SIZE!=0){
+        num_packet++;
+    }
+    return num_packet;
+}
+
+static inline int  write_rv_frame_head(uint8_t *data, int num_packet )
+{
+    int ret = -1;
+    int i = 0;
+    if (num_packet <1 || data ==NULL){
+        return ret;
+    }
+    data[0] = num_packet -1;
+    for(i = 0; i< num_packet; i++){
+        //the value of next 4 byte is the segment index
+        AV_WL32(data+1+8*i, (i+1));
+        //continuous 4 byte is the segment offset
+        AV_WL32(data+5+8*i, (MAX_PACKET_SIZE * i));
+    }
+    return 0;
+}
+
 
 #endif // AVCODEC_LIBRV11_H
