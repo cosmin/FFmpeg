@@ -20,6 +20,7 @@
  */
 
 #include "rm.h"
+#include "libavutil/intreadwrite.h"
 
 const char * const ff_rm_metadata[4] = {
     "title",

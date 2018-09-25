@@ -300,6 +300,8 @@ static void register_all(void)
     REGISTER_DECODER(RSCC,              rscc);
     REGISTER_ENCDEC (RV10,              rv10);
     REGISTER_ENCDEC (RV20,              rv20);
+    REGISTER_DECODER(LIBRV11DEC,        librv11dec);
+    REGISTER_ENCODER(LIBRV11ENC,        librv11enc);
     REGISTER_DECODER(RV30,              rv30);
     REGISTER_DECODER(RV40,              rv40);
     REGISTER_ENCDEC (S302M,             s302m);

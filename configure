@@ -268,6 +268,8 @@ External library support:
   --enable-libx264         enable H.264 encoding via x264 [no]
   --enable-libx265         enable HEVC encoding via x265 [no]
   --enable-libxavs         enable AVS encoding via xavs [no]
+  --enable-librv11dec      enable RV11 decoding via rv11 [no]
+  --enable-librv11enc      enable RV11 encoding via rv11 [no]
   --enable-libxcb          enable X11 grabbing using XCB [autodetect]
   --enable-libxcb-shm      enable X11 grabbing shm communication [autodetect]
   --enable-libxcb-xfixes   enable X11 grabbing mouse rendering [autodetect]
@@ -1581,6 +1583,8 @@ EXTERNAL_LIBRARY_LIST="
     libvpx
     libwavpack
     libwebp
+    librv11dec
+    librv11enc
     libzimg
     libzmq
     libzvbi
@@ -2896,6 +2900,8 @@ libx264rgb_encoder_deps="libx264 x264_csp_bgr"
 libx264rgb_encoder_select="libx264_encoder"
 libx265_encoder_deps="libx265"
 libxavs_encoder_deps="libxavs"
+librv11dec_decoder_deps="librv11dec"
+librv11enc_encoder_deps="librv11enc"
 libxvid_encoder_deps="libxvid"
 libzvbi_teletext_decoder_deps="libzvbi"
 videotoolbox_deps="VideoToolbox_VideoToolbox_h"
@@ -5875,6 +5881,9 @@ enabled libx265           && require_pkg_config x265 x265.h x265_api_get &&
                              { check_cpp_condition x265.h "X265_BUILD >= 68" ||
                                die "ERROR: libx265 version must be >= 68."; }
 enabled libxavs           && require libxavs "stdint.h xavs.h" xavs_encoder_encode -lxavs
+#currently do not check library and head file because of dynamic library  
+enabled librv11enc         
+enabled librv11dec 
 enabled libxvid           && require libxvid xvid.h xvid_global -lxvidcore
 enabled libzimg           && require_pkg_config "zimg >= 2.3.0" zimg.h zimg_get_api_version
 enabled libzmq            && require_pkg_config libzmq zmq.h zmq_ctx_new

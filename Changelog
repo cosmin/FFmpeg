@@ -1,6 +1,25 @@
 Entries are sorted chronologically from oldest to youngest within each release,
 releases are sorted from youngest to oldest.
 
+version 3.3.3
+-configure: add rv11 decoder and encoder, rmhd demuxer and muxer configure options
+-libavcodec/Makefile: add rv11 decoder and encoder source files
+-libavcodec/allcodecs: register rv11 decoder and encoder
+-libavcodec/avcodec: add rv11 codec ID
+-libavcodec/codec_desc: add rv11 codec descriptor
+-libavcodec/librv11dec: add rv11 decoder wrapper
+-libavcodec/librv11enc: add rv11 encoder wrapper
+-libavformat/librmhdenc: add rmhd muxer
+-libavformat/librmhd: add rmhd utility methods and structs
+-libavformat/librmhddec: add rmhd demuxer
+-libavformat/rm_internal: add rmhd utility methods and structs
+-libavformat/Makefile: add rmhd demuxer and muxer source files
+-libavformat/allformats: register rmhd demuxer and muxer
+-libavformat/mpegts.c: to play ts file whose video codec is rv11
+-libavformat/mpegtsenc: to generate ts file whose video codec is rv11
+-libavformat/isom: add rv11 codec tag
+-libavformat/mov: to play mp4 file whose video codec is rv11
+-libavformat/movenc: to generate mp4 file whose video codec is rv11
 
 version 3.3.2:
 - avcodec/mpeg4videodec: Fix runtime error: signed integer overflow: 53098 * 40448 cannot be represented in type 'int'

@@ -58,6 +58,7 @@
 #include "id3v1.h"
 #include "mov_chan.h"
 #include "replaygain.h"
+#include "rm.h"
 
 #if CONFIG_ZLIB
 #include <zlib.h>
@@ -1695,6 +1696,11 @@ static int mov_read_glbl(MOVContext *c, AVIOContext *pb, MOVAtom atom)
     ret = ff_get_extradata(c->fc, st->codecpar, pb, atom.size);
     if (ret < 0)
         return ret;
+    if(st->codecpar->codec_id == AV_CODEC_ID_RV60){
+        if (st->codecpar->extradata_size != 14 ) {
+            return AVERROR_INVALIDDATA;
+        }
+    }
 
     return 0;
 }
@@ -5334,6 +5340,7 @@ static const MOVParseTableEntry mov_default_parse_table[] = {
 { MKTAG('d','v','c','1'), mov_read_dvc1 },
 { MKTAG('s','b','g','p'), mov_read_sbgp },
 { MKTAG('h','v','c','C'), mov_read_glbl },
+{ MKTAG('r','v','6','C'), mov_read_glbl },
 { MKTAG('u','u','i','d'), mov_read_uuid },
 { MKTAG('C','i','n', 0x8e), mov_read_targa_y216 },
 { MKTAG('f','r','e','e'), mov_read_free },

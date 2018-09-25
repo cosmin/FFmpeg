@@ -2312,10 +2312,17 @@ fail:
             }
 
             avctx->frame_number++;
-            av_frame_set_best_effort_timestamp(picture,
-                                               guess_correct_pts(avctx,
-                                                                 picture->pts,
-                                                                 picture->pkt_dts));
+            if(avctx->codec_id == AV_CODEC_ID_RV60)
+            {
+                av_frame_set_best_effort_timestamp(picture, picture->pts);
+            }
+            else
+            {
+                av_frame_set_best_effort_timestamp(picture,
+                                                   guess_correct_pts(avctx,
+                                                                    picture->pts,
+                                                                    picture->pkt_dts));
+            }
         } else
             av_frame_unref(picture);
     } else

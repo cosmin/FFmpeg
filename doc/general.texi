@@ -17,6 +17,21 @@ for more formats. None of them are used by default, their use has to be
 explicitly requested by passing the appropriate flags to
 @command{./configure}.
 
+@section rv11 codec
+
+FFmpeg can make use of the rv11 codec libraries for rv11 encoding and decoding.
+
+Go to @url{http://www.realnetworks.com/realmediaHD} and follow the
+instructions for installing the libraries. Then pass @code{--enable-librv11dec} to
+configure to enable rv11 decoder and pass @code{--enable-librv11enc} to
+configure to enable rv11 encoder. 
+
+@section rmhd format
+
+FFmpeg has rmhd demuxer and muxer to play and generate rmhd contents. To enable rmhd
+demuxer, pass @code{--enable-demuxer=librmhd} to @file{./configure}. To enable rmhd
+muxer, pass @code{--enable-muxer=librmhd} to @file{./configure}. 
+
 @section OpenJPEG
 
 FFmpeg can use the OpenJPEG libraries for encoding/decoding J2K videos.  Go to

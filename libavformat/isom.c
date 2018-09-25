@@ -68,6 +68,7 @@ const AVCodecTag ff_mp4_obj_type[] = {
     { AV_CODEC_ID_QCELP       , 0xE1 },
     { AV_CODEC_ID_MPEG4SYSTEMS, 0x01 },
     { AV_CODEC_ID_MPEG4SYSTEMS, 0x02 },
+    { AV_CODEC_ID_RV60        , 0xB0},
     { AV_CODEC_ID_NONE        ,    0 },
 };
 
@@ -273,6 +274,7 @@ const AVCodecTag ff_codec_movvideo_tags[] = {
     { AV_CODEC_ID_HAP, MKTAG('H', 'a', 'p', '1') },
     { AV_CODEC_ID_HAP, MKTAG('H', 'a', 'p', '5') },
     { AV_CODEC_ID_HAP, MKTAG('H', 'a', 'p', 'Y') },
+    { AV_CODEC_ID_RV60, MKTAG('r', 'v', '6', '0') },
 
     { AV_CODEC_ID_DXV, MKTAG('D', 'X', 'D', '3') },
     { AV_CODEC_ID_DXV, MKTAG('D', 'X', 'D', 'I') },

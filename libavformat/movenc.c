@@ -1095,6 +1095,19 @@ static int mov_write_hvcc_tag(AVIOContext *pb, MOVTrack *track)
     return update_size(pb, pos);
 }
 
+static int mov_write_rv60_tag(AVIOContext *pb, MOVTrack *track)
+{
+    int64_t pos = avio_tell(pb);
+
+    avio_wb32(pb, 0);
+    ffio_wfourcc(pb, "rv6C");
+    if (track->vos_len) {
+        //rv60 codec specific data
+        avio_write(pb, track->vos_data, track->vos_len);
+    }
+    return update_size(pb, pos);
+}
+
 /* also used by all avid codecs (dv, imx, meridien) and their variants */
 static int mov_write_avid_tag(AVIOContext *pb, MOVTrack *track)
 {
@@ -1207,6 +1220,7 @@ static int mp4_get_codec_tag(AVFormatContext *s, MOVTrack *track)
     else if (track->par->codec_id == AV_CODEC_ID_DIRAC)     tag = MKTAG('d','r','a','c');
     else if (track->par->codec_id == AV_CODEC_ID_MOV_TEXT)  tag = MKTAG('t','x','3','g');
     else if (track->par->codec_id == AV_CODEC_ID_VC1)       tag = MKTAG('v','c','-','1');
+    else if (track->par->codec_id == AV_CODEC_ID_RV60)      tag = MKTAG('r','v','6','0');
     else if (track->par->codec_id == AV_CODEC_ID_FLAC)      tag = MKTAG('f','L','a','C');
     else if (track->par->codec_type == AVMEDIA_TYPE_VIDEO)  tag = MKTAG('m','p','4','v');
     else if (track->par->codec_type == AVMEDIA_TYPE_AUDIO)  tag = MKTAG('m','p','4','a');
@@ -1923,6 +1937,8 @@ static int mov_write_video_tag(AVIOContext *pb, MOVMuxContext *mov, MOVTrack *tr
         mov_write_vpcc_tag(mov->fc, pb, track);
     } else if (track->par->codec_id == AV_CODEC_ID_VC1 && track->vos_len > 0)
         mov_write_dvc1_tag(pb, track);
+    else if (track->par->codec_id == AV_CODEC_ID_RV60)
+        mov_write_rv60_tag(pb, track);
     else if (track->par->codec_id == AV_CODEC_ID_VP6F ||
              track->par->codec_id == AV_CODEC_ID_VP6A) {
         /* Don't write any potential extradata here - the cropping
@@ -2613,29 +2629,45 @@ static int mov_write_tkhd_tag(AVIOContext *pb, MOVMuxContext *mov,
     }
     /* Track width and height, for visual only */
     if (st && (track->par->codec_type == AVMEDIA_TYPE_VIDEO ||
-               track->par->codec_type == AVMEDIA_TYPE_SUBTITLE)) {
-        int64_t track_width_1616;
-        if (track->mode == MODE_MOV) {
-            track_width_1616 = track->par->width * 0x10000ULL;
-        } else {
-            track_width_1616 = av_rescale(st->sample_aspect_ratio.num,
+                track->par->codec_type == AVMEDIA_TYPE_SUBTITLE))
+    {
+        if ((track->par->codec_id == AV_CODEC_ID_RV60) && (track->mode == MODE_MP4)) 
+        {
+        	avio_wb32(pb, track->par->width << 16);
+        	avio_wb32(pb, track->par->height << 16);
+        }
+        else
+        {
+            int64_t track_width_1616;
+            if (track->mode == MODE_MOV)
+            {
+                track_width_1616 = track->par->width * 0x10000ULL;
+            }
+            else
+            {
+                track_width_1616 = av_rescale(st->sample_aspect_ratio.num,
                                                   track->par->width * 0x10000LL,
                                                   st->sample_aspect_ratio.den);
-            if (!track_width_1616 ||
-                track->height != track->par->height ||
-                track_width_1616 > UINT32_MAX)
-                track_width_1616 = track->par->width * 0x10000ULL;
+                if (!track_width_1616 ||
+                    track->height != track->par->height ||
+                    track_width_1616 > UINT32_MAX)
+                    track_width_1616 = track->par->width * 0x10000ULL;
+            }
+
+            if (track_width_1616 > UINT32_MAX)
+            {
+                av_log(mov->fc, AV_LOG_WARNING, "track width is too large\n");
+                track_width_1616 = 0;
+            }
+            avio_wb32(pb, track_width_1616);
+
+            if (track->height > 0xFFFF)
+            {
+                av_log(mov->fc, AV_LOG_WARNING, "track height is too large\n");
+                avio_wb32(pb, 0);
+            } else
+                avio_wb32(pb, track->height * 0x10000U);
         }
-        if (track_width_1616 > UINT32_MAX) {
-            av_log(mov->fc, AV_LOG_WARNING, "track width is too large\n");
-            track_width_1616 = 0;
-        }
-        avio_wb32(pb, track_width_1616);
-        if (track->height > 0xFFFF) {
-            av_log(mov->fc, AV_LOG_WARNING, "track height is too large\n");
-            avio_wb32(pb, 0);
-        } else
-            avio_wb32(pb, track->height * 0x10000U);
     } else {
         avio_wb32(pb, 0);
         avio_wb32(pb, 0);

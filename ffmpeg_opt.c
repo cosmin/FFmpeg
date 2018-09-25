@@ -1399,8 +1399,10 @@ static OutputStream *new_output_stream(OptionsContext *o, AVFormatContext *oc, e
 
     MATCH_PER_STREAM_OPT(disposition, str, ost->disposition, oc, st);
     ost->disposition = av_strdup(ost->disposition);
-
-    ost->max_muxing_queue_size = 128;
+    
+    //FixMe: temp change the size to 256 for playing rtmp/rv60 stream
+    //ost->max_muxing_queue_size = 128;
+    ost->max_muxing_queue_size = 256;
     MATCH_PER_STREAM_OPT(max_muxing_queue_size, i, ost->max_muxing_queue_size, oc, st);
     ost->max_muxing_queue_size *= sizeof(AVPacket);
 
@@ -1659,7 +1661,7 @@ static OutputStream *new_video_stream(OptionsContext *o, AVFormatContext *oc, in
                      ost->logfile_prefix ? ost->logfile_prefix :
                                            DEFAULT_PASS_LOGFILENAME_PREFIX,
                      i);
-            if (!strcmp(ost->enc->name, "libx264")) {
+            if (!strcmp(ost->enc->name, "libx264") || !strcmp(ost->enc->name, "librv11enc")) {
                 av_dict_set(&ost->encoder_opts, "stats", logfilename, AV_DICT_DONT_OVERWRITE);
             } else {
                 if (video_enc->flags & AV_CODEC_FLAG_PASS2) {

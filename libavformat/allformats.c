@@ -259,6 +259,7 @@ static void register_all(void)
     REGISTER_DEMUXER (REDSPARK,         redspark);
     REGISTER_DEMUXER (RL2,              rl2);
     REGISTER_MUXDEMUX(RM,               rm);
+    REGISTER_MUXDEMUX(LIBRMHD,          librmhd);
     REGISTER_MUXDEMUX(ROQ,              roq);
     REGISTER_DEMUXER (RPL,              rpl);
     REGISTER_DEMUXER (RSD,              rsd);
