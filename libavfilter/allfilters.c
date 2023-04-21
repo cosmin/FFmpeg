@@ -465,6 +465,7 @@ extern const AVFilter ff_vf_subtitles;
 extern const AVFilter ff_vf_super2xsai;
 extern const AVFilter ff_vf_swaprect;
 extern const AVFilter ff_vf_swapuv;
+extern const AVFilter ff_vf_talign;
 extern const AVFilter ff_vf_tblend;
 extern const AVFilter ff_vf_telecine;
 extern const AVFilter ff_vf_thistogram;

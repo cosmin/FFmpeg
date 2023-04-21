@@ -493,6 +493,7 @@ OBJS-$(CONFIG_SUBTITLES_FILTER)              += vf_subtitles.o
 OBJS-$(CONFIG_SUPER2XSAI_FILTER)             += vf_super2xsai.o
 OBJS-$(CONFIG_SWAPRECT_FILTER)               += vf_swaprect.o
 OBJS-$(CONFIG_SWAPUV_FILTER)                 += vf_swapuv.o
+OBJS-$(CONFIG_TALIGN_FILTER)                 += vf_talign.o framesync.o
 OBJS-$(CONFIG_TBLEND_FILTER)                 += vf_blend.o framesync.o
 OBJS-$(CONFIG_TELECINE_FILTER)               += vf_telecine.o
 OBJS-$(CONFIG_THISTOGRAM_FILTER)             += vf_histogram.o
