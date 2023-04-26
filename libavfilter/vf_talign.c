@@ -43,71 +43,61 @@
 #include "framesync.h"
 #include "internal.h"
 #include "ssim.h"
+#include "filters.h"
 
-typedef struct SSIMContext {
+typedef struct TAlignContext {
     const AVClass *class;
     FFFrameSync fs;
+    uint64_t nb_frames;
     int n_subsample;
-    SSIMDSPContext dsp;
-} SSIMContext;
+} TAlignContext;
 
-#define OFFSET(x) offsetof(SSIMContext, x)
+#define OFFSET(x) offsetof(TAlignContext, x)
 #define FLAGS AV_OPT_FLAG_FILTERING_PARAM|AV_OPT_FLAG_VIDEO_PARAM
 
-static const AVOption ssim_options[] = {
+static const AVOption talign_options[] = {
     {"n_subsample", "Set interval for frame subsampling, will keep 1 in N frames.",     OFFSET(n_subsample), AV_OPT_TYPE_INT, {.i64=1}, 1, UINT_MAX, FLAGS},
     { NULL }
 };
+FRAMESYNC_DEFINE_CLASS(talign, TAlignContext, fs);
 
-FRAMESYNC_DEFINE_CLASS(ssim, SSIMContext, fs);
-
-static int do_ssim(FFFrameSync *fs)
+static int do_align(FFFrameSync *fs)
 {
     AVFilterContext *ctx = fs->parent;
-    SSIMContext *s = ctx->priv;
+    TAlignContext *s = ctx->priv;
     AVFrame *master, *ref;
-    AVDictionary **metadata;
-    double c[4] = {0}, ssimv = 0.0;
-    ThreadData td;
-    int ret, i;
+    int ret;
 
     ret = ff_framesync_dualinput_get(fs, &master, &ref);
-    if (ret < 0)
+    if (ret < 0) {
+        av_log(ctx, AV_LOG_VERBOSE, "Failed to get dual frames\n");
         return ret;
-    if (ctx->is_disabled || !ref)
-        return ff_filter_frame(ctx->outputs[0], master);
+    }
 
     s->nb_frames++;
-    ff_filter_execute(ctx, s->ssim_plane, &td, NULL,
-                      FFMIN((s->planeheight[1] + 3) >> 2, s->nb_threads));
 
-    ret = ff_filter_frame(ctx->outputs[0], master);
-    if (!ret) {
-        return ff_filter_frame(ctx->outputs[0], ref);
+    if (master && ref) {
+        av_log(ctx, AV_LOG_VERBOSE, "Got main frame with PTS %lld\n", master->pts);
+        ff_filter_frame(ctx->outputs[0], master);
+        ref->pts = master->pts;
+        ref->duration = master->duration;
+        av_log(ctx, AV_LOG_VERBOSE, "Got ref frame with PTS %lld\n", ref->pts);
+        ff_filter_frame(ctx->outputs[1], ref);
+    } else {
+        av_log(ctx, AV_LOG_VERBOSE, "Only got one of the two frames\n");
+        if (ff_inoutlink_check_flow(ctx->inputs[0], ctx->outputs[0]) && ff_inoutlink_check_flow(ctx->inputs[1], ctx->outputs[1])) {
+            ff_filter_set_ready(ctx, 100);
+        }
+        return 0;
     }
+
+    return 0;
 }
 
 static av_cold int init(AVFilterContext *ctx)
 {
-    SSIMContext *s = ctx->priv;
-
-    if (s->stats_file_str) {
-        if (!strcmp(s->stats_file_str, "-")) {
-            s->stats_file = stdout;
-        } else {
-            s->stats_file = avpriv_fopen_utf8(s->stats_file_str, "w");
-            if (!s->stats_file) {
-                int err = AVERROR(errno);
-                char buf[128];
-                av_strerror(err, buf, sizeof(buf));
-                av_log(ctx, AV_LOG_ERROR, "Could not open stats file %s: %s\n",
-                       s->stats_file_str, buf);
-                return err;
-            }
-        }
-    }
-
-    s->fs.on_event = do_ssim;
+    TAlignContext *s = ctx->priv;
+    s->fs.on_event = do_align;
     return 0;
 }
 
@@ -127,7 +117,7 @@ static const enum AVPixelFormat pix_fmts[] = {
 static int config_output(AVFilterLink *outlink)
 {
     AVFilterContext *ctx = outlink->src;
-    SSIMContext *s = ctx->priv;
+    TAlignContext *s = ctx->priv;
     AVFilterLink *mainlink = ctx->inputs[0];
     int ret;
 
@@ -157,7 +147,7 @@ static int config_output(AVFilterLink *outlink)
 static int config_output_ref(AVFilterLink *outlink)
 {
     AVFilterContext *ctx = outlink->src;
-    SSIMContext *s = ctx->priv;
+    TAlignContext *s = ctx->priv;
     AVFilterLink *mainlink = ctx->inputs[0];
     AVFilterLink *reflink = ctx->inputs[1];
     int ret;
@@ -169,26 +159,32 @@ static int config_output_ref(AVFilterLink *outlink)
     // copy these from the main link as we are going to synchronize the two
     outlink->time_base = mainlink->time_base;
     outlink->frame_rate = mainlink->frame_rate;
-    outlink->time_base = s->fs.time_base;
+    outlink->time_base = reflink->time_base;
+    outlink->frame_rate = reflink->frame_rate;
+//    outlink->time_base = s->fs.time_base;
 
     return 0;
 }
 
 static int activate(AVFilterContext *ctx)
 {
-    SSIMContext *s = ctx->priv;
+    TAlignContext *s = ctx->priv;
+
+//    FF_FILTER_FORWARD_STATUS_BACK(ctx->outputs[0], ctx->inputs[0]);
+//    FF_FILTER_FORWARD_STATUS_BACK(ctx->outputs[1], ctx->inputs[1]);
+
     return ff_framesync_activate(&s->fs);
 }
 
 static av_cold void uninit(AVFilterContext *ctx)
 {
-    SSIMContext *s = ctx->priv;
+    TAlignContext *s = ctx->priv;
     ff_framesync_uninit(&s->fs);
 }
 
-static const AVFilterPad ssim_inputs[] = {
+static const AVFilterPad talign_inputs[] = {
     {
-        .name         = "main",
+        .name         = "default",
         .type         = AVMEDIA_TYPE_VIDEO,
     },{
         .name         = "ref",
@@ -196,9 +192,9 @@ static const AVFilterPad ssim_inputs[] = {
     },
 };
 
-static const AVFilterPad ssim_outputs[] = {
+static const AVFilterPad talign_outputs[] = {
     {
-        .name          = "main",
+        .name          = "default",
         .type          = AVMEDIA_TYPE_VIDEO,
         .config_props  = config_output,
     },
@@ -212,14 +208,14 @@ static const AVFilterPad ssim_outputs[] = {
 const AVFilter ff_vf_talign = {
     .name          = "talign",
     .description   = NULL_IF_CONFIG_SMALL("Frame align a video stream with its reference for subsequent metric calculations"),
-    .preinit       = ssim_framesync_preinit,
+    .preinit       = talign_framesync_preinit,
     .init          = init,
     .uninit        = uninit,
     .activate      = activate,
-    .priv_size     = sizeof(SSIMContext),
-    .priv_class    = &ssim_class,
-    FILTER_INPUTS(ssim_inputs),
-    FILTER_OUTPUTS(ssim_outputs),
+    .priv_size     = sizeof(TAlignContext),
+    .priv_class    = &talign_class,
+    FILTER_INPUTS(talign_inputs),
+    FILTER_OUTPUTS(talign_outputs),
     FILTER_PIXFMTS_ARRAY(pix_fmts),
     .flags         = AVFILTER_FLAG_SUPPORT_TIMELINE_INTERNAL |
                      AVFILTER_FLAG_SLICE_THREADS             |

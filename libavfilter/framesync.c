@@ -73,8 +73,6 @@ enum {
     STATE_EOF,
 };
 
-static int consume_from_fifos(FFFrameSync *fs);
-
 void ff_framesync_preinit(FFFrameSync *fs)
 {
     if (fs->class)
@@ -88,7 +86,7 @@ int ff_framesync_init(FFFrameSync *fs, AVFilterContext *parent, unsigned nb_in)
     /* For filters with several outputs, we will not be able to assume which
        output is relevant for ff_outlink_frame_wanted() and
        ff_outlink_set_status(). To be designed when needed. */
-    av_assert0(parent->nb_outputs == 1);
+//    av_assert0(parent->nb_outputs == 1);
 
     ff_framesync_preinit(fs);
     fs->parent = parent;
@@ -105,6 +103,9 @@ static void framesync_eof(FFFrameSync *fs)
     fs->eof = 1;
     fs->frame_ready = 0;
     ff_outlink_set_status(fs->parent->outputs[0], AVERROR_EOF, AV_NOPTS_VALUE);
+    if (fs->parent->nb_outputs > 1) {
+        ff_outlink_set_status(fs->parent->outputs[1], AVERROR_EOF, AV_NOPTS_VALUE);
+    }
 }
 
 static void framesync_sync_level_update(FFFrameSync *fs)
@@ -181,7 +182,7 @@ int ff_framesync_configure(FFFrameSync *fs)
     return 0;
 }
 
-static int framesync_advance(FFFrameSync *fs)
+int framesync_advance(FFFrameSync *fs)
 {
     unsigned i;
     int64_t pts;
@@ -313,7 +314,7 @@ void ff_framesync_uninit(FFFrameSync *fs)
     av_freep(&fs->in);
 }
 
-static int consume_from_fifos(FFFrameSync *fs)
+int consume_from_fifos(FFFrameSync *fs)
 {
     AVFilterContext *ctx = fs->parent;
     AVFrame *frame = NULL;
@@ -341,9 +342,22 @@ static int consume_from_fifos(FFFrameSync *fs)
             }
         }
     }
+
+
+
     if (nb_miss) {
-        if (nb_miss == nb_active && !ff_outlink_frame_wanted(ctx->outputs[0]))
-            return FFERROR_NOT_READY;
+        if (nb_miss == nb_active) {
+            av_log(fs, AV_LOG_VERBOSE, "Have outputs %u\n", ctx->nb_outputs);
+            if (ctx->nb_outputs > 1) {
+                if (!ff_outlink_frame_wanted(ctx->outputs[0]) || !ff_outlink_frame_wanted(ctx->outputs[1])) {
+                    return FFERROR_NOT_READY;
+                }
+            } else {
+                if (!ff_outlink_frame_wanted(ctx->outputs[0])) {
+                    return FFERROR_NOT_READY;
+                }
+            }
+        }
         for (i = 0; i < fs->nb_in; i++)
             if (!fs->in[i].have_next && fs->in[i].state != STATE_EOF)
                 ff_inlink_request_frame(ctx->inputs[i]);

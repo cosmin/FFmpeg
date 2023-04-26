@@ -287,6 +287,10 @@ int ff_framesync_get_frame(FFFrameSync *fs, unsigned in, AVFrame **rframe,
  */
 int ff_framesync_activate(FFFrameSync *fs);
 
+int consume_from_fifos(FFFrameSync *fs);
+
+int framesync_advance(FFFrameSync *fs);
+
 /**
  * Initialize a frame sync structure for dualinput.
  *
