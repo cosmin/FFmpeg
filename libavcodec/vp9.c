@@ -202,6 +202,7 @@ static int update_size(AVCodecContext *avctx, int w, int h)
 
         switch (s->pix_fmt) {
         case AV_PIX_FMT_YUV420P:
+        case AV_PIX_FMT_YUVJ420P:
         case AV_PIX_FMT_YUV420P10:
 #if CONFIG_VP9_DXVA2_HWACCEL
             *fmtp++ = AV_PIX_FMT_DXVA2_VLD;
@@ -508,6 +509,25 @@ static int read_colorspace_details(AVCodecContext *avctx)
         } else {
             s->ss_h = s->ss_v = 1;
             s->pix_fmt = pix_fmt_for_ss[bits][1][1];
+        }
+
+        if (avctx->color_range = AVCOL_RANGE_JPEG) {
+            switch (s->pix_fmt) {
+                case AV_PIX_FMT_YUV444P:
+                    s->pix_fmt = AV_PIX_FMT_YUVJ444P;
+                    break;
+                case AV_PIX_FMT_YUV422P:
+                    s->pix_fmt = AV_PIX_FMT_YUVJ422P;
+                    break;
+                case AV_PIX_FMT_YUV440P:
+                    s->pix_fmt = AV_PIX_FMT_YUVJ440P;
+                    break;
+                case AV_PIX_FMT_YUV420P:
+                    s->pix_fmt = AV_PIX_FMT_YUVJ420P;
+                    break;
+                default:
+                    break;
+            }
         }
     }
 
