@@ -511,7 +511,7 @@ static int read_colorspace_details(AVCodecContext *avctx)
             s->pix_fmt = pix_fmt_for_ss[bits][1][1];
         }
 
-        if (avctx->color_range = AVCOL_RANGE_JPEG) {
+        if (avctx->color_range == AVCOL_RANGE_JPEG) {
             switch (s->pix_fmt) {
                 case AV_PIX_FMT_YUV444P:
                     s->pix_fmt = AV_PIX_FMT_YUVJ444P;
