@@ -799,21 +799,25 @@ static int set_pix_fmt(AVCodecContext *avctx, vpx_codec_caps_t codec_caps,
     enccfg->g_bit_depth = enccfg->g_input_bit_depth = desc->comp[0].depth;
     switch (avctx->pix_fmt) {
     case AV_PIX_FMT_YUV420P:
+    case AV_PIX_FMT_YUVJ420P:
     case AV_PIX_FMT_YUVA420P:
         enccfg->g_profile = 0;
         *img_fmt = VPX_IMG_FMT_I420;
         return 0;
     case AV_PIX_FMT_YUV422P:
+    case AV_PIX_FMT_YUVJ422P:
         enccfg->g_profile = 1;
         *img_fmt = VPX_IMG_FMT_I422;
         return 0;
     case AV_PIX_FMT_YUV440P:
+    case AV_PIX_FMT_YUVJ440P:
         enccfg->g_profile = 1;
         *img_fmt = VPX_IMG_FMT_I440;
         return 0;
     case AV_PIX_FMT_GBRP:
         ctx->vpx_cs = VPX_CS_SRGB;
     case AV_PIX_FMT_YUV444P:
+    case AV_PIX_FMT_YUVJ444P:
         enccfg->g_profile = 1;
         *img_fmt = VPX_IMG_FMT_I444;
         return 0;
@@ -2037,20 +2041,28 @@ static av_cold int vp9_init(AVCodecContext *avctx)
 
 static const enum AVPixelFormat vp9_pix_fmts_highcol[] = {
     AV_PIX_FMT_YUV420P,
+    AV_PIX_FMT_YUVJ420P,
     AV_PIX_FMT_YUVA420P,
     AV_PIX_FMT_YUV422P,
+    AV_PIX_FMT_YUVJ422P,
     AV_PIX_FMT_YUV440P,
+    AV_PIX_FMT_YUVJ440P,
     AV_PIX_FMT_YUV444P,
+    AV_PIX_FMT_YUVJ444P,
     AV_PIX_FMT_GBRP,
     AV_PIX_FMT_NONE
 };
 
 static const enum AVPixelFormat vp9_pix_fmts_highbd[] = {
     AV_PIX_FMT_YUV420P,
+    AV_PIX_FMT_YUVJ420P,
     AV_PIX_FMT_YUVA420P,
     AV_PIX_FMT_YUV422P,
+    AV_PIX_FMT_YUVJ422P,
     AV_PIX_FMT_YUV440P,
+    AV_PIX_FMT_YUVJ440P,
     AV_PIX_FMT_YUV444P,
+    AV_PIX_FMT_YUVJ444P,
     AV_PIX_FMT_YUV420P10,
     AV_PIX_FMT_YUV422P10,
     AV_PIX_FMT_YUV440P10,
