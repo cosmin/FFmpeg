@@ -1038,6 +1038,10 @@ static int decode_audio_specific_config_gb(AACContext *ac,
                                               m4ac, m4ac->chan_config)) < 0)
             return ret;
         break;
+    case AOT_USAC:
+        /*Parsing of USAC_CONFIG is not yet implemented.*/
+        skip_bits_long(gb, get_bits_left(gb));
+        break;
     default:
         avpriv_report_missing_feature(avctx,
                                       "Audio object type %s%d",
@@ -3392,6 +3396,10 @@ static int aac_decode_frame(AVCodecContext *avctx, AVFrame *frame,
     case AOT_ER_AAC_ELD:
         err = aac_decode_er_frame(avctx, frame, got_frame_ptr, &gb);
         break;
+    case AOT_USAC:
+        ac->avctx->profile = ac->oc[1].m4ac.object_type - 1;
+        av_log(avctx, AV_LOG_ERROR, "Decoding USAC frames is not supported.\n");
+        return AVERROR_PATCHWELCOME;
     default:
         err = aac_decode_frame_int(avctx, frame, got_frame_ptr, &gb, avpkt);
     }
