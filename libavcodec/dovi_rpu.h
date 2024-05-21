@@ -28,6 +28,11 @@
 #include "libavutil/frame.h"
 #include "avcodec.h"
 
+#define DOVI_ENCODING_OPTS \
+    { "dolbyvision", "Enable Dolby Vision RPU coding", OFFSET(dovi.enable), AV_OPT_TYPE_BOOL, {.i64 = FF_DOVI_AUTOMATIC }, -1, 1, VE, .unit = "dovi" }, \
+    {   "auto", NULL, 0, AV_OPT_TYPE_CONST, {.i64 = FF_DOVI_AUTOMATIC}, .flags = VE, .unit = "dovi" }, \
+    { "dv_enable_compression", "Enable Dolby Vision metadata compression", OFFSET(dovi.enable_compression), AV_OPT_TYPE_BOOL, {.i64 = 0 }, 0, 1, VE },
+
 #define DOVI_MAX_DM_ID 15
 typedef struct DOVIContext {
     void *logctx;
@@ -70,6 +75,11 @@ typedef struct DOVIContext {
      */
     AVDOVIDmData *ext_blocks;
     int num_ext_blocks;
+
+    /**
+     * Enable metadata compression in the output. Currently this is experimental.
+     */
+    int enable_compression;
 
     /**
      * Private fields internal to dovi_rpu.c

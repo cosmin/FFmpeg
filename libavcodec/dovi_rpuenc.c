@@ -514,8 +514,12 @@ int ff_dovi_rpu_generate(DOVIContext *s, const AVDOVIMetadata *metadata,
         }
     }
 
-    vdr_dm_metadata_changed = !s->color || memcmp(s->color, color, sizeof(*color));
-    use_prev_vdr_rpu = !memcmp(&s->vdr[vdr_rpu_id]->mapping, mapping, sizeof(*mapping));
+    // the output when vdr_dm_metadata_changed is 0 fails the DV verifier
+    // force it to 1 until we can get some samples or documentation on correct syntax
+    vdr_dm_metadata_changed = 1; // !s->color || memcmp(s->color, color, sizeof(*color));
+
+    // not all clients support metadata compression
+    use_prev_vdr_rpu = s->enable_compression && !memcmp(&s->vdr[vdr_rpu_id]->mapping, mapping, sizeof(*mapping));
 
     buffer_size = 12 /* vdr seq info */ + 5 /* CRC32 + terminator */;
     buffer_size += num_ext_blocks_v1 * 13;
