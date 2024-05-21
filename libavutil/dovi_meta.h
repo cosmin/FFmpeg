@@ -87,6 +87,8 @@ typedef struct AVDOVIRpuDataHeader {
     uint8_t bl_video_full_range_flag;
     uint8_t bl_bit_depth; /* [8, 16] */
     uint8_t el_bit_depth; /* [8, 16] */
+    uint8_t ext_mapping_idc_0_4; /* extended base layer inverse mapping indicator */
+    uint8_t ext_mapping_idc_5_7; /* reserved */
     uint8_t vdr_bit_depth; /* [8, 16] */
     uint8_t spatial_resampling_filter_flag;
     uint8_t el_spatial_resampling_filter_flag;

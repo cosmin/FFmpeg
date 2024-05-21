@@ -444,6 +444,7 @@ int ff_dovi_rpu_generate(DOVIContext *s, const AVDOVIMetadata *metadata,
     int vdr_dm_metadata_changed, vdr_rpu_id, use_prev_vdr_rpu, profile,
         buffer_size, rpu_size, pad, zero_run;
     int num_ext_blocks_v1, num_ext_blocks_v2;
+    uint8_t ext_mapping_idc;
     uint32_t crc;
     uint8_t *dst;
     if (!metadata) {
@@ -551,7 +552,8 @@ int ff_dovi_rpu_generate(DOVIContext *s, const AVDOVIMetadata *metadata,
     put_bits(pb, 1, hdr->bl_video_full_range_flag);
     if ((hdr->rpu_format & 0x700) == 0) {
         set_ue_golomb(pb, hdr->bl_bit_depth - 8);
-        set_ue_golomb(pb, hdr->el_bit_depth - 8);
+        ext_mapping_idc = (hdr->ext_mapping_idc_5_7 << 5) | hdr->ext_mapping_idc_0_4;
+        set_ue_golomb(pb, (ext_mapping_idc << 8) | hdr->el_bit_depth - 8);
         set_ue_golomb(pb, hdr->vdr_bit_depth - 8);
         put_bits(pb, 1, hdr->spatial_resampling_filter_flag);
         put_bits(pb, 3, 0); /* reserved_zero_3bits */
