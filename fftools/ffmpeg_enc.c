@@ -356,6 +356,8 @@ int enc_open(OutputStream *ost, const AVFrame *frame)
         int i;
         for (i = 0; i < ist->st->codecpar->nb_coded_side_data; i++) {
             AVPacketSideData *sd_src = &ist->st->codecpar->coded_side_data[i];
+            if (sd_src->type == AV_PKT_DATA_DOVI_CONF)
+                continue;
             if (sd_src->type != AV_PKT_DATA_CPB_PROPERTIES) {
                 AVPacketSideData *sd_dst = av_packet_side_data_new(&ost->par_in->coded_side_data,
                                                                    &ost->par_in->nb_coded_side_data,
