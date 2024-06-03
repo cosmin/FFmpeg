@@ -58,7 +58,7 @@ int ff_dovi_attach_side_data(DOVIContext *s, AVFrame *frame)
 
     /* Copy only the parts of these structs known to us at compiler-time. */
 #define COPY(t, a, b, last) memcpy(a, b, offsetof(t, last) + sizeof((b)->last))
-    COPY(AVDOVIRpuDataHeader, av_dovi_get_header(dovi), &s->header, disable_residual_flag);
+    COPY(AVDOVIRpuDataHeader, av_dovi_get_header(dovi), &s->header, ext_mapping_idc_5_7);
     COPY(AVDOVIDataMapping, av_dovi_get_mapping(dovi), s->mapping, nlq_pivots);
     COPY(AVDOVIColorMetadata, av_dovi_get_color(dovi), s->color, source_diagonal);
     ext_sz = FFMIN(sizeof(AVDOVIDmData), dovi->ext_block_size);
