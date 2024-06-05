@@ -1046,8 +1046,8 @@ static int decode_audio_specific_config_gb(AACDecContext *ac,
             return ret;
         break;
 #if CONFIG_AAC_DECODER
-    case AOT_USAC_NOSBR: /* fallthrough */
     case AOT_USAC:
+        ac->avctx->profile = AV_PROFILE_AAC_USAC;
         if ((ret = ff_aac_usac_config_decode(ac, avctx, gb,
                                              oc, m4ac->chan_config)) < 0)
             return ret;
@@ -1571,8 +1571,7 @@ int ff_aac_decode_tns(AACDecContext *ac, TemporalNoiseShaping *tns,
                       GetBitContext *gb, const IndividualChannelStream *ics)
 {
     int tns_max_order = INT32_MAX;
-    const int is_usac = ac->oc[1].m4ac.object_type == AOT_USAC ||
-                        ac->oc[1].m4ac.object_type == AOT_USAC_NOSBR;
+    const int is_usac = ac->oc[1].m4ac.object_type == AOT_USAC;
     int w, filt, i, coef_len, coef_res, coef_compress;
     const int is8 = ics->window_sequence[0] == EIGHT_SHORT_SEQUENCE;
 
@@ -2421,8 +2420,7 @@ static int aac_decode_frame_int(AVCodecContext *avctx, AVFrame *frame,
 
     ac->tags_mapped = 0;
 
-    if ((ac->oc[1].m4ac.object_type == AOT_USAC) ||
-        (ac->oc[1].m4ac.object_type == AOT_USAC_NOSBR)) {
+    if (ac->oc[1].m4ac.object_type == AOT_USAC) {
         if (ac->is_fixed) {
             avpriv_report_missing_feature(ac->avctx,
                                           "AAC USAC fixed-point decoding");
