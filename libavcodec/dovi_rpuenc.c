@@ -441,7 +441,7 @@ int ff_dovi_rpu_generate(DOVIContext *s, const AVDOVIMetadata *metadata,
     const AVDOVIRpuDataHeader *hdr;
     const AVDOVIDataMapping *mapping;
     const AVDOVIColorMetadata *color;
-    int vdr_dm_metadata_changed, vdr_rpu_id, use_prev_vdr_rpu, profile,
+    int vdr_dm_metadata_present, vdr_rpu_id, use_prev_vdr_rpu, profile,
         buffer_size, rpu_size, pad, zero_run;
     int num_ext_blocks_v1, num_ext_blocks_v2;
     uint8_t ext_mapping_idc;
@@ -515,7 +515,7 @@ int ff_dovi_rpu_generate(DOVIContext *s, const AVDOVIMetadata *metadata,
 
     // the output when vdr_dm_metadata_changed is 0 fails the DV verifier
     // force it to 1 until we can get some samples or documentation on correct syntax
-    vdr_dm_metadata_changed = 1; // !s->color || memcmp(s->color, color, sizeof(*color));
+    vdr_dm_metadata_present = memcmp(color, &ff_dovi_color_default, sizeof(*color));
 
     // not all clients support metadata compression
     use_prev_vdr_rpu = s->enable_compression && !memcmp(&s->vdr[vdr_rpu_id]->mapping, mapping, sizeof(*mapping));
@@ -534,7 +534,7 @@ int ff_dovi_rpu_generate(DOVIContext *s, const AVDOVIMetadata *metadata,
             }
         }
     }
-    if (vdr_dm_metadata_changed)
+    if (vdr_dm_metadata_present)
         buffer_size += 67;
 
     av_fast_padded_malloc(&s->rpu_buf, &s->rpu_buf_sz, buffer_size);
@@ -566,7 +566,7 @@ int ff_dovi_rpu_generate(DOVIContext *s, const AVDOVIMetadata *metadata,
     }
     s->header = *hdr;
 
-    put_bits(pb, 1, vdr_dm_metadata_changed);
+    put_bits(pb, 1, vdr_dm_metadata_present);
     put_bits(pb, 1, use_prev_vdr_rpu);
     set_ue_golomb(pb, vdr_rpu_id);
     s->mapping = &s->vdr[vdr_rpu_id]->mapping;
@@ -638,7 +638,7 @@ int ff_dovi_rpu_generate(DOVIContext *s, const AVDOVIMetadata *metadata,
         memcpy(&s->vdr[vdr_rpu_id]->mapping, mapping, sizeof(*mapping));
     }
 
-    if (vdr_dm_metadata_changed) {
+    if (vdr_dm_metadata_present) {
         const int denom = profile == 4 ? (1 << 30) : (1 << 28);
         set_ue_golomb(pb, color->dm_metadata_id); /* affected_dm_id */
         set_ue_golomb(pb, color->dm_metadata_id); /* current_dm_id */
