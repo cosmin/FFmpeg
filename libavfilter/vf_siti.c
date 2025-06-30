@@ -109,7 +109,7 @@ static av_cold void uninit(AVFilterContext *ctx)
     // Always print summary if we have frames
     if (s->nb_frames > 0) {
         float avg_si = s->sum_si / s->nb_frames;
-        float avg_ti = s->sum_ti / s->nb_frames;
+        float avg_ti = s->sum_ti / (s->nb_frames - 1);
         av_log(ctx, AV_LOG_INFO,
                "SITI Summary:\nTotal frames: %" PRId64 "\n\n"
                "Spatial Information:\nAverage: %f\nMax: %f\nMin: %f\n\n"
@@ -460,8 +460,6 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *frame)
         s->full_range = user_wants_full;
     }
 
-    s->nb_frames++;
-
     int frame_size = s->width * s->height;
     normalized_frame = av_malloc(frame_size * sizeof(float));
     transformed_frame = av_malloc(frame_size * sizeof(float));
@@ -540,7 +538,7 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *frame)
     float si_raw = calculate_si_float(transformed_frame, s->width, s->height);
     float ti_raw = 0.0f;
 
-    if (s->nb_frames > 1) {
+    if (s->nb_frames > 0) {
         ti_raw = calculate_ti_float(transformed_frame, s->prev_frame_float,
                                     s->width, s->height);
     }
@@ -570,7 +568,7 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *frame)
     s->sum_si += si;
     s->sum_ti += ti;
     s->min_si = fminf(si, s->min_si);
-    s->min_ti = s->nb_frames > 1 ? fminf(ti, s->min_ti) : s->min_ti;
+    s->min_ti = s->nb_frames > 0 ? fminf(ti, s->min_ti) : s->min_ti;
 
     // Set si ti information in frame metadata
     set_meta(&frame->metadata, "lavfi.siti.si", si);
@@ -579,6 +577,9 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *frame)
     // Clean up
     av_freep(&normalized_frame);
     av_freep(&transformed_frame);
+
+    // Increment frame count at the end
+    s->nb_frames++;
 
     return ff_filter_frame(inlink->dst->outputs[0], frame);
 }
