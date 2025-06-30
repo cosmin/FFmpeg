@@ -84,6 +84,10 @@ typedef struct SiTiContext {
     float gamma;
     Pu21Mode pu21_mode;
     int legacy;               // Legacy mode flag
+
+    // JSON output support
+    char *stats_file_str;
+    FILE *stats_file;
 } SiTiContext;
 
 static const enum AVPixelFormat pix_fmts[] = {
@@ -98,6 +102,21 @@ static av_cold int init(AVFilterContext *ctx)
     s->max_ti = 0;
     s->min_si = FLT_MAX;
     s->min_ti = FLT_MAX;
+
+    // Initialize JSON output if stats file is specified
+    if (s->stats_file_str) {
+        if (!strcmp(s->stats_file_str, "-")) {
+            s->stats_file = stdout;
+        } else {
+            s->stats_file = avpriv_fopen_utf8(s->stats_file_str, "w");
+            if (!s->stats_file) {
+                int err = AVERROR(errno);
+                av_log(ctx, AV_LOG_ERROR, "Could not open stats file %s: %s\n",
+                       s->stats_file_str, av_err2str(err));
+                return err;
+            }
+        }
+    }
 
     return 0;
 }
@@ -116,6 +135,17 @@ static av_cold void uninit(AVFilterContext *ctx)
                "Temporal Information:\nAverage: %f\nMax: %f\nMin: %f\n",
                s->nb_frames, avg_si, s->max_si, s->min_si, avg_ti, s->max_ti,
                s->min_ti);
+
+        // Write JSON summary line if output is enabled
+        if (s->stats_file) {
+            fprintf(s->stats_file, "{\"summary\":{\"frames\":%" PRId64 ",\"si\":{\"min\":%.15f,\"max\":%.15f,\"avg\":%.15f},\"ti\":{\"min\":%.15f,\"max\":%.15f,\"avg\":%.15f}}}\n",
+                    s->nb_frames, s->min_si, s->max_si, avg_si, s->min_ti, s->max_ti, avg_ti);
+        }
+    }
+
+    // Close JSON file if it was opened
+    if (s->stats_file && s->stats_file != stdout) {
+        fclose(s->stats_file);
     }
 
     av_freep(&s->prev_frame_float);
@@ -155,6 +185,26 @@ static int config_input(AVFilterLink *inlink)
 
     if (!s->gradient_matrix || !s->motion_matrix) {
         return AVERROR(ENOMEM);
+    }
+
+    // Write JSON settings line if output is enabled
+    if (s->stats_file) {
+        // Convert enum values to strings for JSON output
+        const char *calc_domain_str = s->calculation_domain == PQ ? "pq" : "pu21";
+        const char *hdr_mode_str = s->hdr_mode == SDR ? "sdr" :
+                                   (s->hdr_mode == HDR10 ? "hdr10" : "hlg");
+        const char *color_range_str = s->color_range == FULL ? "full" :
+                                      (s->color_range == LIMITED ? "limited" : "unspecified");
+        const char *eotf_str = s->eotf_function == BT1886 ? "bt1886" : "inv_srgb";
+        const char *pu21_mode_str = s->pu21_mode == BANDING ? "banding" :
+                                    s->pu21_mode == BANDING_GLARE ? "banding_glare" :
+                                    s->pu21_mode == PEAKS ? "peaks" : "peaks_glare";
+
+        fprintf(s->stats_file, "{\"settings\":{\"calculation_domain\":\"%s\",\"hdr_mode\":\"%s\",\"bit_depth\":%d,\"color_range\":\"%s\",\"eotf_function\":\"%s\",\"l_max\":%.1f,\"l_min\":%.2f,\"gamma\":%.1f,\"pu21_mode\":\"%s\",\"legacy\":%s,\"version\":\"ffmpeg\",\"width\":%d,\"height\":%d}}\n",
+                calc_domain_str, hdr_mode_str, s->bit_depth, color_range_str, eotf_str,
+                s->l_max, s->l_min, s->gamma, pu21_mode_str, s->legacy ? "true" : "false",
+                s->width, s->height);
+        fflush(s->stats_file);
     }
 
     return 0;
@@ -574,6 +624,19 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *frame)
     set_meta(&frame->metadata, "lavfi.siti.si", si);
     set_meta(&frame->metadata, "lavfi.siti.ti", ti);
 
+    // Write per-frame JSON line if output is enabled
+    if (s->stats_file) {
+        if (s->nb_frames == 0) {
+            // First frame - no TI value
+            fprintf(s->stats_file, "{\"frame\":%" PRId64 ",\"si\":%.15f}\n",
+                    s->nb_frames, si);
+        } else {
+            fprintf(s->stats_file, "{\"frame\":%" PRId64 ",\"si\":%.15f,\"ti\":%.15f}\n",
+                    s->nb_frames, si, ti);
+        }
+        fflush(s->stats_file);
+    }
+
     // Clean up
     av_freep(&normalized_frame);
     av_freep(&transformed_frame);
@@ -620,6 +683,8 @@ static const AVOption siti_options[] = {
         { "peaks_glare",   "peaks with glare",         0, AV_OPT_TYPE_CONST, {.i64 = PEAKS_GLARE},   0, 0, FLAGS, .unit = "pu21_mode" },
     { "legacy", "use legacy SI/TI calculation (8-bit only, no HDR)", OFFSET(legacy), AV_OPT_TYPE_BOOL,
       {.i64 = 0}, 0, 1, FLAGS },
+    { "stats_file", "set file to write SI/TI statistics in line delimited JSON format", OFFSET(stats_file_str), AV_OPT_TYPE_STRING,
+      {.str = NULL}, 0, 0, FLAGS },
     { NULL }
 };
 
