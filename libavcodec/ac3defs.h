@@ -34,6 +34,8 @@
 #define AC3_CRITICAL_BANDS 50
 #define AC3_MAX_CPL_BANDS  18
 
+#define EAC3_SR_CODE_REDUCED 3
+
 /* exponent encoding strategy */
 #define EXP_REUSE 0
 #define EXP_NEW   1

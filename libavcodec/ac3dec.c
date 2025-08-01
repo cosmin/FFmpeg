@@ -375,7 +375,7 @@ static int parse_frame_header(AC3DecodeContext *s)
         return ac3_parse_header(s);
     } else if (CONFIG_EAC3_DECODER) {
         s->eac3 = 1;
-        return ff_eac3_parse_header(s);
+        return ff_eac3_parse_header(s, &hdr);
     } else {
         av_log(s->avctx, AV_LOG_ERROR, "E-AC-3 support not compiled in\n");
         return AVERROR(ENOSYS);

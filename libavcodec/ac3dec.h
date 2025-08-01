@@ -56,6 +56,7 @@
 #include "libavutil/mem_internal.h"
 
 #include "ac3.h"
+#include "ac3_parser_internal.h"
 #include "ac3dsp.h"
 #include "bswapdsp.h"
 #include "get_bits.h"
@@ -259,7 +260,7 @@ typedef struct AC3DecodeContext {
  * Parse the E-AC-3 frame header.
  * This parses both the bit stream info and audio frame header.
  */
-static int ff_eac3_parse_header(AC3DecodeContext *s);
+static int ff_eac3_parse_header(AC3DecodeContext *s, const AC3HeaderInfo *hdr);
 
 /**
  * Decode mantissas in a single channel for the entire frame.
