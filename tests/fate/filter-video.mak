@@ -797,6 +797,26 @@ fate-filter-refcmp-xpsnr-rgb: CMD = refcmp_metadata xpsnr rgb24 0.002
 FATE_FILTER_REFCMP_METADATA-$(CONFIG_XPSNR_FILTER) += fate-filter-refcmp-xpsnr-yuv
 fate-filter-refcmp-xpsnr-yuv: CMD = refcmp_metadata xpsnr yuv422p 0.0015
 
+# SITI filter tests
+FATE_FILTER_SITI-$(CONFIG_SITI_FILTER) += fate-filter-siti-legacy
+fate-filter-siti-legacy: CMD = run ffmpeg -i $(TARGET_SAMPLES)/filter/siti-sdr-8bit.y4m -vf siti=legacy=1:color_range=full,metadata=mode=print:file=- -f null -
+
+FATE_FILTER_SITI-$(CONFIG_SITI_FILTER) += fate-filter-siti-sdr-limited
+fate-filter-siti-sdr-limited: CMD = run ffmpeg -i $(TARGET_SAMPLES)/filter/siti-sdr-limited.y4m -vf siti=color_range=limited,metadata=mode=print:file=- -f null -
+
+FATE_FILTER_SITI-$(CONFIG_SITI_FILTER) += fate-filter-siti-sdr-full
+fate-filter-siti-sdr-full: CMD = run ffmpeg -i $(TARGET_SAMPLES)/filter/siti-sdr-8bit.y4m -vf siti=color_range=full,metadata=mode=print:file=- -f null -
+
+FATE_FILTER_SITI-$(CONFIG_SITI_FILTER) += fate-filter-siti-hdr10
+fate-filter-siti-hdr10: CMD = run ffmpeg -i $(TARGET_SAMPLES)/filter/siti-hdr10-10bit.y4m -vf siti=hdr_mode=hdr10:calculation_domain=pq:color_range=full:l_max=1000,metadata=mode=print:file=- -f null -
+
+FATE_FILTER_SITI-$(CONFIG_SITI_FILTER) += fate-filter-siti-hlg
+fate-filter-siti-hlg: CMD = run ffmpeg -i $(TARGET_SAMPLES)/filter/siti-hlg-10bit.y4m -vf siti=hdr_mode=hlg:calculation_domain=pq:color_range=full:l_max=1000,metadata=mode=print:file=- -f null -
+
+FATE_FILTER_SAMPLES-$(CONFIG_SITI_FILTER) += $(FATE_FILTER_SITI-yes)
+
+fate-filter-siti: $(FATE_FILTER_SITI-yes)
+
 FATE_FILTER-$(call ALLYES, TESTSRC2_FILTER SPLIT_FILTER AVGBLUR_FILTER        \
                            METADATA_FILTER WRAPPED_AVFRAME_ENCODER NULL_MUXER \
                            PIPE_PROTOCOL) += $(FATE_FILTER_REFCMP_METADATA-yes)

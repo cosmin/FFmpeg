@@ -1,0 +1,6 @@
+frame:0    pts:0       pts_time:0
+lavfi.siti.si=127.01
+lavfi.siti.ti=0.00
+frame:1    pts:1       pts_time:0.5
+lavfi.siti.si=127.52
+lavfi.siti.ti=1.03
