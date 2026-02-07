@@ -328,6 +328,9 @@ fate-filter-select-alternate: CMD = framecrc -c:v pgmyuv -i $(SRC) -/filter $(TA
 FATE_FILTER_FFPROBE-$(call ALLYES, FFPROBE SELECT_FILTER SMPTEBARS_FILTER LAVFI_INDEV) += fate-filter-select-ffprobe
 fate-filter-select-ffprobe: CMD = probe -print_format compact -show_entries packet=stream_index,pts,pts_time -f lavfi "smptebars=d=1,select=n=2:e=1[out0][out1]"
 
+FATE_FILTER_FFPROBE-$(call ALLYES, FFPROBE SETAMVE_FILTER COLOR_FILTER LAVFI_INDEV) += fate-filter-setamve
+fate-filter-setamve: CMD = probe -show_entries frame_side_data_list -select_streams v -v 0 -f lavfi "color=black:duration=0.04:r=25,setamve=illuminance=314:light_x=0.3127:light_y=0.329"
+
 FATE_FILTER-$(call FILTERFRAMECRC, SMPTEBARS SELECT, LAVFI_INDEV WRAPPED_AVFRAME_ENCODER NULL_MUXER) += fate-filter-select-buffering
 fate-filter-select-buffering: tests/data/filtergraphs/select-buffering
 fate-filter-select-buffering: CMD = framecrc -filter_buffered_frames 1 -f lavfi -i "smptebars=d=21" -/filter_complex $(TARGET_PATH)/tests/data/filtergraphs/select-buffering -map "[o1]" -f null none -map "[o2]" -f null none -map "[o3]"
