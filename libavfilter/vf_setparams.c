@@ -20,8 +20,10 @@
 
 #include "config_components.h"
 
-#include "libavutil/pixfmt.h"
+#include "libavutil/ambient_viewing_environment.h"
 #include "libavutil/opt.h"
+#include "libavutil/pixfmt.h"
+#include "libavutil/rational.h"
 #include "avfilter.h"
 #include "filters.h"
 #include "formats.h"
@@ -309,3 +311,102 @@ const FFFilter ff_vf_setfield = {
     FILTER_OUTPUTS(ff_video_default_filterpad),
 };
 #endif /* CONFIG_SETFIELD_FILTER */
+
+#if CONFIG_SETAMVE_FILTER
+
+typedef struct SetAMVEContext {
+    const AVClass *class;
+    double ambient_illuminance;
+    double ambient_light_x;
+    double ambient_light_y;
+} SetAMVEContext;
+
+#define AMVE_OFFSET(x) offsetof(SetAMVEContext, x)
+
+static const AVOption setamve_options[] = {
+    {"illuminance", "set ambient illuminance", AMVE_OFFSET(ambient_illuminance), AV_OPT_TYPE_DOUBLE, {.dbl=-1}, -1, 100000, FLAGS},
+    {"light_x",     "set ambient light x",     AMVE_OFFSET(ambient_light_x),     AV_OPT_TYPE_DOUBLE, {.dbl=-1}, -1, 1.0,     FLAGS},
+    {"light_y",     "set ambient light y",     AMVE_OFFSET(ambient_light_y),     AV_OPT_TYPE_DOUBLE, {.dbl=-1}, -1, 1.0,     FLAGS},
+    {NULL}
+};
+
+AVFILTER_DEFINE_CLASS(setamve);
+
+static av_cold int init_setamve(AVFilterContext *ctx)
+{
+    SetAMVEContext *s = ctx->priv;
+
+    if (s->ambient_light_x > -1 && s->ambient_light_x < 0) {
+        av_log(ctx, AV_LOG_ERROR, "Invalid light_x value %f, must be >= 0 or -1\n", s->ambient_light_x);
+        return AVERROR(EINVAL);
+    }
+    if (s->ambient_light_y > -1 && s->ambient_light_y < 0) {
+        av_log(ctx, AV_LOG_ERROR, "Invalid light_y value %f, must be >= 0 or -1\n", s->ambient_light_y);
+        return AVERROR(EINVAL);
+    }
+    if (s->ambient_illuminance > -1 && s->ambient_illuminance < 0) {
+        av_log(ctx, AV_LOG_ERROR, "Invalid illuminance value %f, must be >= 0 or -1\n", s->ambient_illuminance);
+        return AVERROR(EINVAL);
+    }
+    return 0;
+}
+
+static int setamve_filter_frame(AVFilterLink *inlink, AVFrame *frame)
+{
+    AVFilterContext *ctx = inlink->dst;
+    SetAMVEContext *s = ctx->priv;
+    AVAmbientViewingEnvironment *amve;
+    AVFrameSideData *sd;
+    int ret;
+
+    if (s->ambient_illuminance < 0 && s->ambient_light_x < 0 &&
+        s->ambient_light_y < 0)
+        return ff_filter_frame(ctx->outputs[0], frame);
+
+    ret = av_frame_make_writable(frame);
+    if (ret < 0) {
+        av_frame_free(&frame);
+        return ret;
+    }
+
+    sd = av_frame_get_side_data(frame, AV_FRAME_DATA_AMBIENT_VIEWING_ENVIRONMENT);
+    if (sd) {
+        amve = (AVAmbientViewingEnvironment *)sd->data;
+    } else {
+        amve = av_ambient_viewing_environment_create_side_data(frame);
+        if (!amve) {
+            av_frame_free(&frame);
+            return AVERROR(ENOMEM);
+        }
+    }
+
+    if (s->ambient_illuminance >= 0)
+        amve->ambient_illuminance = av_d2q(s->ambient_illuminance, INT_MAX);
+    if (s->ambient_light_x >= 0)
+        amve->ambient_light_x = av_d2q(s->ambient_light_x, INT_MAX);
+    if (s->ambient_light_y >= 0)
+        amve->ambient_light_y = av_d2q(s->ambient_light_y, INT_MAX);
+
+    return ff_filter_frame(ctx->outputs[0], frame);
+}
+
+static const AVFilterPad setamve_inputs[] = {
+    {
+        .name         = "default",
+        .type         = AVMEDIA_TYPE_VIDEO,
+        .filter_frame = setamve_filter_frame,
+    },
+};
+
+const FFFilter ff_vf_setamve = {
+    .p.name        = "setamve",
+    .p.description = NULL_IF_CONFIG_SMALL("Set ambient viewing environment for the output video frame."),
+    .p.priv_class  = &setamve_class,
+    .p.flags       = AVFILTER_FLAG_METADATA_ONLY,
+    .priv_size   = sizeof(SetAMVEContext),
+    .init        = init_setamve,
+    FILTER_INPUTS(setamve_inputs),
+    FILTER_OUTPUTS(ff_video_default_filterpad),
+};
+
+#endif /* CONFIG_SETAMVE_FILTER */

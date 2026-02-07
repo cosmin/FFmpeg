@@ -458,6 +458,7 @@ extern const FFFilter ff_vf_select;
 extern const FFFilter ff_vf_selectivecolor;
 extern const FFFilter ff_vf_sendcmd;
 extern const FFFilter ff_vf_separatefields;
+extern const FFFilter ff_vf_setamve;
 extern const FFFilter ff_vf_setdar;
 extern const FFFilter ff_vf_setfield;
 extern const FFFilter ff_vf_setparams;
