@@ -21636,6 +21636,53 @@ This filter use field-dominance information in frame to decide which
 of each pair of fields to place first in the output.
 If it gets it wrong use @ref{setfield} filter before @code{separatefields} filter.
 
+@anchor{setamve}
+@section setamve
+
+Set ambient viewing environment metadata for the output video frame.
+
+The @code{setamve} filter attaches or modifies ambient viewing environment
+side data on video frames. This metadata describes the ambient lighting
+conditions under which the content is intended to be viewed, as specified
+in ITU-T H.274.
+
+The filter accepts the following options:
+
+@table @option
+
+@item illuminance
+Set the ambient illuminance in lux. Valid range is 0 to 100000.
+Default value is @code{-1}, which leaves the existing value unchanged.
+
+@item light_x
+Set the ambient light x chromaticity coordinate (CIE 1931 xy).
+Valid range is 0 to 1.0.
+Default value is @code{-1}, which leaves the existing value unchanged.
+
+@item light_y
+Set the ambient light y chromaticity coordinate (CIE 1931 xy).
+Valid range is 0 to 1.0.
+Default value is @code{-1}, which leaves the existing value unchanged.
+
+@end table
+
+@subsection Examples
+
+@itemize
+@item
+Set ambient viewing environment with illuminance of 314 lux and D65
+white point (x=0.3127, y=0.3290):
+@example
+setamve=illuminance=314:light_x=0.3127:light_y=0.329
+@end example
+
+@item
+Set only the ambient illuminance, keeping other values unchanged:
+@example
+setamve=illuminance=200
+@end example
+@end itemize
+
 @section setdar, setsar
 
 The @code{setdar} filter sets the Display Aspect Ratio for the filter
