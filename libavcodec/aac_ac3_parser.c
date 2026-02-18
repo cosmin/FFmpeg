@@ -142,6 +142,11 @@ get_next:
             avctx->audio_service_type = hdr.bitstream_mode;
             if (hdr.bitstream_mode == 0x7 && hdr.channels > 1)
                 avctx->audio_service_type = AV_AUDIO_SERVICE_TYPE_KARAOKE;
+            if (hdr.bitstream_id > 10)
+                avctx->profile = hdr.eac3_extension_type_a ?
+                    AV_PROFILE_EAC3_DDP_ATMOS : AV_PROFILE_EAC3_DDP;
+            else
+                avctx->profile = AV_PROFILE_AC3_MAIN;
             bit_rate = hdr.bit_rate;
 #endif
         } else {

@@ -356,6 +356,7 @@ static int ff_eac3_parse_header(AC3DecodeContext *s, const AC3HeaderInfo *hdr)
 
     /* additional bitstream info */
     s->eac3_extension_type_a = hdr->eac3_extension_type_a;
+    s->complexity_index_type_a = hdr->complexity_index_type_a;
 
     /* audio frame syntax flags, strategy data, and per-frame data */
 

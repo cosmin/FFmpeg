@@ -51,6 +51,7 @@ static const AVOption options[] = {
 {"ltrt_surmixlev", "Lt/Rt Surround Mix Level", OFFSET(ltrt_surround_mix_level),  AV_OPT_TYPE_FLOAT, {.dbl = -1.0 }, -1.0, 2.0, EXPORT },
 {"loro_cmixlev",   "Lo/Ro Center Mix Level",   OFFSET(loro_center_mix_level),    AV_OPT_TYPE_FLOAT, {.dbl = -1.0 }, -1.0, 2.0, EXPORT },
 {"loro_surmixlev", "Lo/Ro Surround Mix Level", OFFSET(loro_surround_mix_level),  AV_OPT_TYPE_FLOAT, {.dbl = -1.0 }, -1.0, 2.0, EXPORT },
+{"complexity_index", "E-AC-3 Atmos Complexity Index", OFFSET(complexity_index_type_a), AV_OPT_TYPE_INT, {.i64 = -1 }, -1, 255, EXPORT },
 
     { "downmix", "Request a specific channel layout from the decoder", OFFSET(downmix_layout), AV_OPT_TYPE_CHLAYOUT, {.str = NULL}, .flags = PAR },
 
@@ -78,6 +79,7 @@ const FFCodec ff_ac3_decoder = {
     CODEC_LONG_NAME("ATSC A/52A (AC-3)"),
     CODEC_SAMPLEFMTS(AV_SAMPLE_FMT_FLTP),
     .p.priv_class   = &ac3_eac3_decoder_class,
+    .p.profiles     = NULL_IF_CONFIG_SMALL(ff_ac3_profiles),
     .caps_internal  = FF_CODEC_CAP_INIT_CLEANUP,
 };
 

@@ -49,7 +49,13 @@ const AVProfile ff_dca_profiles[] = {
     { AV_PROFILE_UNKNOWN },
 };
 
+const AVProfile ff_ac3_profiles[] = {
+  { AV_PROFILE_AC3_MAIN,       "Dolby Digital"},
+  { AV_PROFILE_UNKNOWN },
+};
+
 const AVProfile ff_eac3_profiles[] = {
+  { AV_PROFILE_EAC3_DDP,       "Dolby Digital Plus"},
   { AV_PROFILE_EAC3_DDP_ATMOS, "Dolby Digital Plus + Dolby Atmos"},
   { AV_PROFILE_UNKNOWN },
 };

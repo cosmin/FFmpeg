@@ -2826,6 +2826,7 @@ static const AVCodecDescriptor codec_descriptors[] = {
         .name      = "ac3",
         .long_name = NULL_IF_CONFIG_SMALL("ATSC A/52A (AC-3)"),
         .props     = AV_CODEC_PROP_INTRA_ONLY | AV_CODEC_PROP_LOSSY,
+        .profiles  = NULL_IF_CONFIG_SMALL(ff_ac3_profiles),
     },
     {
         .id        = AV_CODEC_ID_DTS,
