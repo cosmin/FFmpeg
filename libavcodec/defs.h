@@ -93,6 +93,9 @@
 #define AV_PROFILE_DTS_HD_MA_X        61
 #define AV_PROFILE_DTS_HD_MA_X_IMAX   62
 
+#define AV_PROFILE_AC3_MAIN                0
+
+#define AV_PROFILE_EAC3_DDP               0
 #define AV_PROFILE_EAC3_DDP_ATMOS         30
 
 #define AV_PROFILE_TRUEHD_ATMOS           30

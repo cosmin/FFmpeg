@@ -59,6 +59,7 @@
     FF_AVCTX_PROFILE_OPTION("professional",  NULL, VIDEO, AV_PROFILE_AV1_PROFESSIONAL)\
 
 extern const AVProfile ff_aac_profiles[];
+extern const AVProfile ff_ac3_profiles[];
 extern const AVProfile ff_dca_profiles[];
 extern const AVProfile ff_eac3_profiles[];
 extern const AVProfile ff_truehd_profiles[];

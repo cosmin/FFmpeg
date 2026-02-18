@@ -1584,7 +1584,9 @@ skip:
     if (!err) {
         avctx->sample_rate = s->sample_rate;
         avctx->bit_rate    = s->bit_rate + s->prev_bit_rate;
-        avctx->profile     = s->eac3_extension_type_a == 1 ? AV_PROFILE_EAC3_DDP_ATMOS : AV_PROFILE_UNKNOWN;
+        avctx->profile     = s->eac3 ?
+            (s->eac3_extension_type_a == 1 ? AV_PROFILE_EAC3_DDP_ATMOS : AV_PROFILE_EAC3_DDP) :
+            AV_PROFILE_AC3_MAIN;
     }
 
     if (!avctx->sample_rate) {
