@@ -1,0 +1,7 @@
+[STREAM]
+codec_name=pcm_s16le
+codec_type=audio
+sample_rate=44100
+channels=2
+channel_layout=stereo
+[/STREAM]

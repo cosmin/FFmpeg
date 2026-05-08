@@ -275,6 +275,10 @@ FATE_MOV_FFMPEG-$(call TRANSCODE, PCM_F32LE, MP4 MOV, WAV_DEMUXER PAN_FILTER) \
 fate-mov-mp4-pcm-float: tests/data/asynth-44100-1.wav
 fate-mov-mp4-pcm-float: CMD = transcode wav $(TARGET_PATH)/tests/data/asynth-44100-1.wav mp4 "-af aresample,pan=FR+FL+FR|c0=c0|c1=c0|c2=c0 -c:a pcm_f32le" "-map 0 -c copy -frames:a 0"
 
+# Test chnl box version 1 channel layout parsing
+FATE_MOV_FFMPEG-$(call DEMDEC, MOV, PCM_S16LE) += fate-mov-mp4-chnl-v1
+fate-mov-mp4-chnl-v1: CMD = run ffprobe$(PROGSSUF)$(EXESUF) -bitexact -show_entries stream=codec_name,codec_type,sample_rate,channels,channel_layout -select_streams a -v 0 $(TARGET_PATH)/tests/data/chnl_v1_stereo.mp4
+
 fate-mov-pcm-remux: tests/data/asynth-44100-1.wav
 fate-mov-pcm-remux: CMD = md5 -i $(TARGET_PATH)/tests/data/asynth-44100-1.wav -map 0 -c copy -fflags +bitexact -f mp4
 fate-mov-pcm-remux: CMP = oneline
