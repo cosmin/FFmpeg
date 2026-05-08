@@ -187,11 +187,13 @@ int ff_mov_get_channel_positions_from_layout(const AVChannelLayout *layout,
 /**
  * Read 'chnl' tag from the input stream.
  *
- * @param s     AVFormatContext
- * @param pb    AVIOContext
- * @param st    The stream to set codec values for
- * @return      0 if ok, or negative AVERROR code on failure
+ * @param s       AVFormatContext
+ * @param pb      AVIOContext
+ * @param st      The stream to set codec values for
+ * @param version FullBox version (0 or 1)
+ * @return        0 if ok, or negative AVERROR code on failure
  */
-int ff_mov_read_chnl(AVFormatContext *s, AVIOContext *pb, AVStream *st);
+int ff_mov_read_chnl(AVFormatContext *s, AVIOContext *pb, AVStream *st,
+                     int version);
 
 #endif /* AVFORMAT_MOV_CHAN_H */
