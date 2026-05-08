@@ -726,10 +726,14 @@ int ff_mov_get_channel_positions_from_layout(const AVChannelLayout *layout,
     return 0;
 }
 
-int ff_mov_read_chnl(AVFormatContext *s, AVIOContext *pb, AVStream *st)
+int ff_mov_read_chnl(AVFormatContext *s, AVIOContext *pb, AVStream *st,
+                     int version)
 {
     int stream_structure = avio_r8(pb);
     int ret;
+
+    av_log(s, AV_LOG_TRACE, "'chnl' v%d stream_structure 0x%x\n",
+           version, stream_structure);
 
     // stream carries channels
     if (stream_structure & 1) {
@@ -769,7 +773,9 @@ int ff_mov_read_chnl(AVFormatContext *s, AVIOContext *pb, AVStream *st)
             if (ret < 0)
                 return ret;
         } else {
-            uint64_t omitted_channel_map = avio_rb64(pb);
+            uint64_t omitted_channel_map = 0;
+            if (version == 0)
+                omitted_channel_map = avio_rb64(pb);
             ret = ff_mov_get_channel_layout_from_config(layout, &st->codecpar->ch_layout, omitted_channel_map);
             if (ret < 0)
                 return ret;
